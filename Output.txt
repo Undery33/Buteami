@@ -1,0 +1,199 @@
+Started by user Jenkins Admin
+
+Obtained Jenkinsfile from git https://github.com/Undery33/Buteami.git
+[Pipeline] Start of Pipeline
+[Pipeline] podTemplate
+[Pipeline] {
+[Pipeline] node
+[PodInfo] jenkins/k8s-web-cicd-2-rl271-kps8c-k07n5
+	Container [buildkit] waiting [ContainerCreating] No message
+	Container [jnlp] waiting [ContainerCreating] No message
+	Container [kubectl] waiting [ContainerCreating] No message
+	Pod [Pending][PodSandboxNotReady] no pod sandbox exists
+	Pod [Pending][ContainersNotReady] containers with unready status: [buildkit kubectl jnlp]
+Created Pod: kubernetes jenkins/k8s-web-cicd-2-rl271-kps8c-k07n5
+[PodInfo] jenkins/k8s-web-cicd-2-rl271-kps8c-k07n5
+	Container [buildkit] waiting [ContainerCreating] No message
+	Container [jnlp] waiting [ContainerCreating] No message
+	Container [kubectl] waiting [ContainerCreating] No message
+	Pod [Pending][ContainersNotReady] containers with unready status: [buildkit kubectl jnlp]
+
+Still waiting to schedule task
+‘k8s-web-cicd-2-rl271-kps8c-k07n5
+’ is offline
+
+Agent k8s-web-cicd-2-rl271-kps8c-k07n5
+ is provisioned from template k8s-web-cicd_2-rl271-kps8c
+---
+apiVersion: "v1"
+kind: "Pod"
+metadata:
+  annotations:
+    kubernetes.jenkins.io/last-refresh: "1792378067440"
+    buildUrl: "http://jenkins.jenkins.svc.cluster.local:8080/job/k8s-web-cicd/2/"
+    runUrl: "job/k8s-web-cicd/2/"
+  labels:
+    jenkins/jenkins-jenkins-agent: "true"
+    jenkins/label-digest: "a4e502151b64597f58310380151dec7371048be3"
+    jenkins/label: "k8s-web-cicd_2-rl271"
+    kubernetes.jenkins.io/controller: "http___jenkins_jenkins_svc_cluster_local_8080x"
+  name: "k8s-web-cicd-2-rl271-kps8c-k07n5"
+  namespace: "jenkins"
+spec:
+  containers:
+  - args:
+    - "sleep 99d"
+    command:
+    - "sh"
+    - "-c"
+    env:
+    - name: "BUILDKITD_FLAGS"
+      value: "--oci-worker-no-process-sandbox"
+    image: "moby/buildkit:rootless"
+    name: "buildkit"
+    securityContext:
+      appArmorProfile:
+        type: "Unconfined"
+      runAsGroup: 1000
+      runAsUser: 1000
+      seccompProfile:
+        type: "Unconfined"
+    volumeMounts:
+    - mountPath: "/home/user/.local/share/buildkit"
+      name: "buildkit-data"
+    - mountPath: "/home/jenkins/agent"
+      name: "workspace-volume"
+      readOnly: false
+  - args:
+    - "sleep 99d"
+    command:
+    - "sh"
+    - "-c"
+    image: "alpine/k8s:1.37.1"
+    name: "kubectl"
+    volumeMounts:
+    - mountPath: "/home/jenkins/agent"
+      name: "workspace-volume"
+      readOnly: false
+  - env:
+    - name: "JENKINS_SECRET"
+      value: "********"
+    - name: "JENKINS_TUNNEL"
+      value: "jenkins-agent.jenkins.svc.cluster.local:50000"
+    - name: "JENKINS_AGENT_NAME"
+      value: "k8s-web-cicd-2-rl271-kps8c-k07n5"
+    - name: "REMOTING_OPTS"
+      value: "-noReconnectAfter 1d"
+    - name: "JENKINS_NAME"
+      value: "k8s-web-cicd-2-rl271-kps8c-k07n5"
+    - name: "JENKINS_AGENT_WORKDIR"
+      value: "/home/jenkins/agent"
+    - name: "JENKINS_URL"
+      value: "http://jenkins.jenkins.svc.cluster.local:8080/"
+    image: "jenkins/inbound-agent:3391.va_37fa_a_305d6d-1-jdk25"
+    name: "jnlp"
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+    volumeMounts:
+    - mountPath: "/home/jenkins/agent"
+      name: "workspace-volume"
+      readOnly: false
+  nodeSelector:
+    kubernetes.io/os: "linux"
+  restartPolicy: "Never"
+  securityContext:
+    fsGroup: 1000
+    runAsGroup: 1000
+    runAsUser: 1000
+  serviceAccountName: "ci-deployer"
+  volumes:
+  - emptyDir: {}
+    name: "buildkit-data"
+  - emptyDir:
+      medium: ""
+    name: "workspace-volume"
+
+Running on k8s-web-cicd-2-rl271-kps8c-k07n5
+ in /home/jenkins/agent/workspace/k8s-web-cicd
+[Pipeline] {
+[Pipeline] withEnv
+[Pipeline] {
+[Pipeline] stage
+[Pipeline] { (Checkout)
+[Pipeline] checkout
+Selected Git installation does not exist. Using Default
+The recommended git tool is: NONE
+No credentials specified
+Cloning the remote Git repository
+
+Cloning repository https://github.com/Undery33/Buteami.git
+ > git init /home/jenkins/agent/workspace/k8s-web-cicd # timeout=10
+Fetching upstream changes from https://github.com/Undery33/Buteami.git
+ > git --version # timeout=10
+ > git --version # 'git version 2.47.3'
+ > git fetch --tags --force --progress -- https://github.com/Undery33/Buteami.git +refs/heads/*:refs/remotes/origin/* # timeout=10
+
+Avoid second fetch
+Checking out Revision 0f7655da8209e7f373b7cc5f2cf496d1f728f146 (refs/remotes/origin/main)
+ > git config remote.origin.url https://github.com/Undery33/Buteami.git # timeout=10
+ > git config --add remote.origin.fetch +refs/heads/*:refs/remotes/origin/* # timeout=10
+ > git rev-parse refs/remotes/origin/main^{commit} # timeout=10
+ > git config core.sparsecheckout # timeout=10
+ > git checkout -f 0f7655da8209e7f373b7cc5f2cf496d1f728f146 # timeout=10
+
+Commit message: "change docker, jenkins"
+First time build. Skipping changelog.
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Prepare)
+[Pipeline] script
+[Pipeline] {
+[Pipeline] }
+[Pipeline] // script
+[Pipeline] echo
+Target image: ghcr.io/undery33/k8s-web-demo:build-2
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Build and Push)
+[Pipeline] container
+[Pipeline] {
+[Pipeline] withCredentials
+Masking supported pattern matches of $GHCR_TOKEN
+[Pipeline] {
+[Pipeline] sh
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 2B done
+#1 DONE 0.0s
+error: failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory
+[Pipeline] }
+[Pipeline] // withCredentials
+[Pipeline] }
+[Pipeline] // container
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Deploy to Kubernetes)
+Stage "Deploy to Kubernetes" skipped due to earlier failure(s)
+[Pipeline] getContext
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Declarative: Post Actions)
+[Pipeline] echo
+CI/CD 실패: Console Output 확인
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] }
+[Pipeline] // withEnv
+[Pipeline] }
+[Pipeline] // node
+[Pipeline] }
+[Pipeline] // podTemplate
+[Pipeline] End of Pipeline
+ERROR: script returned exit code 1
+Finished: FAILURE
