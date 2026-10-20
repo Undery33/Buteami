@@ -12,6 +12,7 @@ spec:
     runAsUser: 1000
     runAsGroup: 1000
     fsGroup: 1000
+
   containers:
     - name: buildkit
       image: moby/buildkit:rootless
@@ -56,26 +57,29 @@ spec:
         IMAGE_REPO = 'ghcr.io/undery33/k8s-web-demo'
     }
 
-    stage('Checkout') {
-        steps {
-            checkout scm
-    
-            script {
-                env.GIT_COMMIT = sh(
-                    script: 'git rev-parse HEAD',
-                    returnStdout: true
-                ).trim()
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+
+                script {
+                    env.GIT_COMMIT = sh(
+                        script: 'git rev-parse HEAD',
+                        returnStdout: true
+                    ).trim()
+                }
+
+                echo "Git Commit: ${env.GIT_COMMIT}"
             }
-    
-            echo "Git Commit: ${env.GIT_COMMIT}"
         }
-    }
 
         stage('Prepare') {
             steps {
                 script {
-                    env.IMAGE_REF = "${env.IMAGE_REPO}:build-${env.BUILD_NUMBER}"
+                    env.IMAGE_REF =
+                        "${env.IMAGE_REPO}:build-${env.BUILD_NUMBER}"
                 }
+
                 echo "Target image: ${env.IMAGE_REF}"
             }
         }
@@ -124,7 +128,7 @@ buildctl-daemonless.sh build \
         stage('Deploy to Kubernetes') {
             steps {
                 container('kubectl') {
-                    sh '''
+                    sh '''#!/bin/sh
 set -eu
 
 kubectl -n default set image \
