@@ -56,12 +56,20 @@ spec:
         IMAGE_REPO = 'ghcr.io/undery33/k8s-web-demo'
     }
 
-    stages {
-        stage('Checkout') {
-            steps {
-                checkout scm
+    stage('Checkout') {
+        steps {
+            checkout scm
+    
+            script {
+                env.GIT_COMMIT = sh(
+                    script: 'git rev-parse HEAD',
+                    returnStdout: true
+                ).trim()
             }
+    
+            echo "Git Commit: ${env.GIT_COMMIT}"
         }
+    }
 
         stage('Prepare') {
             steps {
