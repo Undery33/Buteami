@@ -1,0 +1,7 @@
+.git
+.docker
+docs
+html
+README.md
+Jenkinsfile
+version.json

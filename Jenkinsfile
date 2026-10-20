@@ -104,6 +104,8 @@ buildctl-daemonless.sh build \
   --frontend dockerfile.v0 \
   --local context=. \
   --local dockerfile=. \
+  --opt "build-arg:VCS_REF=$GIT_COMMIT" \
+  --opt "build-arg:BUILD_NUMBER=$BUILD_NUMBER" \
   --output "type=image,name=${IMAGE_REF},push=true"
 '''
                     }
