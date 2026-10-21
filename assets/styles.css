@@ -175,6 +175,16 @@ a:focus-visible,
 .menu-toggle {
   display: none;
 }
+.nav-login {
+  display: inline-flex;
+  align-items: center;
+  gap: 15px;
+  padding: 8px 16px;
+  border: 1px solid #735081;
+  border-radius: 6px;
+  background: #291a34;
+  color: #f3d6fc !important;
+}
 .hero {
   position: relative;
   padding: 66px 0 0;

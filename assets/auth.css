@@ -1,0 +1,556 @@
+.nav-login {
+  display: inline-flex;
+  align-items: center;
+  gap: 15px;
+  padding: 8px 16px;
+  border: 1px solid #735081;
+  border-radius: 6px;
+  background: #291a34;
+  color: #f3d6fc !important;
+}
+.account-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse 55% 35% at 30% 0%, #641b732e, transparent), #070709;
+}
+.account-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 125px;
+  gap: 20px;
+}
+.home-link {
+  font-size: 12px;
+  color: #c5b7d3;
+  display: flex;
+  gap: 18px;
+  align-items: center;
+}
+.home-link:hover {
+  color: #fff;
+}
+.account-layout {
+  display: grid;
+  grid-template-columns: 1fr 460px;
+  gap: 90px;
+  align-items: center;
+  min-height: calc(100vh - 225px);
+  padding-block: 30px 55px;
+}
+.account-story > .eyebrow {
+  color: #bd90cf;
+  letter-spacing: 2.5px;
+  font-size: 10px;
+}
+.account-story > h2 {
+  font-size: clamp(36px, 4.2vw, 58px);
+  line-height: 1.3;
+  letter-spacing: -2.5px;
+  font-weight: 700;
+}
+.account-story > h2 span {
+  background: linear-gradient(170deg, #f8c4e5, #ca60d8 60%, #8d42d4);
+  color: transparent;
+  background-clip: text;
+  -webkit-background-clip: text;
+}
+.story-intro {
+  font-size: 14px;
+  line-height: 1.9;
+  color: #aaa0b8;
+  margin-top: 26px;
+}
+.story-academy {
+  font-size: 11px;
+  color: #a695b7;
+  margin-top: 22px;
+}
+.story-academy span {
+  color: #70597e;
+  padding-inline: 10px;
+}
+.connection-art {
+  margin-top: 35px;
+  max-width: 410px;
+  padding: 20px 24px 18px;
+  border: 1px solid #33253d;
+  border-radius: 14px;
+  background:
+    radial-gradient(ellipse at center, #53246144, transparent 70%),
+    linear-gradient(140deg, #18101f, #0b090e);
+  overflow: hidden;
+}
+.art-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 8px;
+  letter-spacing: 1.6px;
+  color: #a891b9;
+}
+.connection-visual {
+  height: 180px;
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+.orbit-ring {
+  position: absolute;
+  border: 1px solid #6a3b7b60;
+  border-radius: 50%;
+  width: 150px;
+  height: 150px;
+  transform: rotate(-25deg) scaleY(0.62);
+}
+.ring-two {
+  width: 250px;
+  height: 210px;
+  transform: rotate(25deg) scaleY(0.58);
+}
+.connection-core {
+  font-size: 43px;
+  font-weight: 700;
+  width: 77px;
+  height: 77px;
+  display: grid;
+  place-content: center;
+  border: 1px solid #a666b9;
+  border-radius: 22px;
+  background: linear-gradient(145deg, #53365f, #23132d);
+  color: #efd5fa;
+  box-shadow: 0 0 40px #c54ce133;
+  position: relative;
+}
+.connection-core > span {
+  position: absolute;
+  right: 13px;
+  bottom: 14px;
+  font-size: 24px;
+  color: #e797df;
+}
+.art-satellite {
+  position: absolute;
+  border: 1px solid #563a65;
+  border-radius: 6px;
+  background: #1c1324;
+  padding: 5px 12px;
+  font-size: 9px;
+  color: #d1b2e3;
+}
+.satellite-one {
+  left: 1%;
+  top: 40px;
+}
+.satellite-two {
+  right: 0;
+  top: 55px;
+}
+.satellite-three {
+  right: 10%;
+  bottom: 16px;
+}
+.connection-art > p {
+  text-align: center;
+  font-size: 10px;
+  color: #a88cb8;
+  letter-spacing: 0.2px;
+}
+.account-card {
+  border: 1px solid #3c2c45;
+  border-radius: 18px;
+  padding: 32px;
+  background: linear-gradient(155deg, #19121f, #0f0c14 70%);
+  box-shadow: 0 25px 80px #0004;
+  min-width: 0;
+}
+.card-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 8px;
+  letter-spacing: 1.2px;
+  color: #a48cb4;
+  margin-bottom: 23px;
+}
+.preview-tag {
+  border: 1px solid #644273;
+  border-radius: 20px;
+  padding: 4px 8px;
+  font-size: 8px;
+  color: #dcb1ed;
+  letter-spacing: 0.6px;
+  white-space: nowrap;
+}
+.account-card h1 {
+  font-size: 28px;
+  letter-spacing: -1px;
+  line-height: 1.4;
+}
+.form-description {
+  font-size: 12px;
+  color: #b9aabf;
+  line-height: 1.8;
+  margin-top: 8px;
+}
+.preview-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #271c303d;
+  border: 1px solid #493452;
+  border-radius: 8px;
+  padding: 12px;
+  margin-block: 22px;
+}
+.notice-icon {
+  width: 16px;
+  height: 16px;
+  border: 1px solid #bc82d1;
+  color: #d2a3e7;
+  border-radius: 50%;
+  display: grid;
+  place-content: center;
+  flex-shrink: 0;
+  font-size: 10px;
+  margin-top: 2px;
+}
+.preview-notice p {
+  font-size: 10px;
+  line-height: 1.8;
+  color: #b9a7c5;
+}
+.preview-notice strong {
+  font-weight: 500;
+  color: #e0c8ee;
+}
+fieldset {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  min-width: 0;
+}
+.form-field {
+  margin-bottom: 18px;
+}
+.form-field label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #e3d8eb;
+}
+.input-wrap {
+  position: relative;
+}
+.form-field input {
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  padding: 11px 13px;
+  border: 1px solid #4b3c55;
+  border-radius: 7px;
+  background: #0b0910;
+  font: inherit;
+  font-size: 12px;
+  color: #f5edf9;
+  line-height: 1.5;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+.form-field input::placeholder {
+  color: #8d809b;
+}
+.form-field input:focus {
+  outline: 0;
+  border-color: #c07adb;
+  box-shadow: 0 0 0 3px #aa63ca20;
+}
+.form-field input[aria-invalid="true"] {
+  border-color: #e991ad;
+}
+.has-toggle input {
+  padding-right: 65px;
+}
+.password-toggle {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  bottom: 4px;
+  min-width: 53px;
+  border-radius: 4px;
+  background: transparent;
+  font-size: 10px;
+  color: #cdb1df;
+  padding: 6px;
+}
+.password-toggle:hover {
+  background: #2d1b39;
+}
+.password-toggle:focus-visible {
+  outline-offset: -2px;
+}
+.field-hint {
+  margin-top: 6px;
+  font-size: 10px;
+  color: #a293ae;
+}
+.field-error {
+  margin-top: 7px;
+  color: #f5adbd;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.form-summary {
+  font-size: 11px;
+  border: 1px solid #814657;
+  border-radius: 7px;
+  background: #351b29;
+  padding: 10px 12px;
+  color: #f8c1ce;
+  margin-bottom: 18px;
+}
+.submit-button {
+  width: 100%;
+  min-height: 48px;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 13px;
+}
+.form-footnote {
+  font-size: 10px;
+  color: #a28caf;
+  text-align: center;
+  margin-top: 12px;
+}
+.recovery-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 23px;
+  font-size: 11px;
+  color: #c5b3d3;
+}
+.recovery-links > span {
+  height: 11px;
+  width: 1px;
+  background: #5b4265;
+}
+.recovery-links a:hover,
+.signup-prompt a:hover {
+  color: #fff;
+}
+.signup-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 25px;
+  padding-top: 21px;
+  border-top: 1px solid #3c2b46;
+  font-size: 11px;
+}
+.signup-prompt > span {
+  color: #ac9abb;
+}
+.signup-prompt > a {
+  color: #e7b5f4;
+  white-space: nowrap;
+}
+.signup-prompt > a span {
+  padding-left: 5px;
+}
+.form-result {
+  text-align: center;
+  padding: 24px 0 10px;
+}
+.result-symbol {
+  display: grid;
+  place-content: center;
+  margin: 0 auto 20px;
+  width: 62px;
+  height: 62px;
+  border: 1px solid #9962aa;
+  border-radius: 50%;
+  background: radial-gradient(circle, #573065, #261530);
+  color: #e4a4f5;
+  font-size: 35px;
+  box-shadow: 0 0 35px #9d37be28;
+}
+.form-result h2 {
+  font-size: 21px;
+  letter-spacing: -0.6px;
+}
+.form-result p {
+  font-size: 12px;
+  color: #c4b0d0;
+  line-height: 1.9;
+  margin: 13px 0 27px;
+}
+.form-result:focus {
+  outline: 2px solid #b871d4;
+  outline-offset: 8px;
+  border-radius: 5px;
+}
+.account-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  min-height: 85px;
+  border-top: 1px solid #2c2235;
+  font-size: 9px;
+  color: #a18bad;
+  letter-spacing: 0.5px;
+}
+.account-footer a:hover {
+  color: #e7b5f4;
+}
+@media (max-width: 1100px) {
+  .account-layout {
+    grid-template-columns: 1fr 430px;
+    gap: 45px;
+  }
+  .account-card {
+    padding: 28px;
+  }
+  .account-story > h2 {
+    font-size: 44px;
+  }
+  .connection-art {
+    padding: 18px;
+  }
+  .art-label {
+    font-size: 7px;
+    letter-spacing: 1px;
+  }
+}
+@media (max-width: 900px) {
+  .account-layout {
+    grid-template-columns: 1fr 390px;
+    gap: 30px;
+    padding-bottom: 40px;
+  }
+  .account-story > h2 {
+    font-size: 34px;
+    letter-spacing: -1.4px;
+  }
+  .story-intro {
+    font-size: 12px;
+  }
+  .account-card {
+    padding: 25px;
+  }
+  .connection-art {
+    padding: 15px 12px;
+  }
+  .art-label {
+    font-size: 6px;
+  }
+  .art-label > span:last-child {
+    display: none;
+  }
+  .art-satellite {
+    font-size: 8px;
+    padding: 4px 7px;
+  }
+  .ring-two {
+    width: 180px;
+  }
+  .connection-art > p {
+    font-size: 9px;
+  }
+  .account-story > .eyebrow {
+    font-size: 8px;
+    letter-spacing: 1.5px;
+  }
+  .story-academy {
+    font-size: 9px;
+  }
+  .story-academy span {
+    padding-inline: 5px;
+  }
+}
+@media (max-width: 760px) {
+  .account-header {
+    min-height: 96px;
+  }
+  .account-layout {
+    display: block;
+    max-width: 460px;
+    padding-top: 16px;
+  }
+  .account-story {
+    display: none;
+  }
+  .account-card {
+    padding: 28px;
+  }
+  .account-footer {
+    max-width: 460px;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    min-height: 78px;
+    padding-block: 20px;
+    font-size: 8px;
+  }
+  .account-footer > span:last-child {
+    display: none;
+  }
+  .home-link {
+    font-size: 11px;
+    gap: 8px;
+  }
+  .account-page {
+    background:
+      radial-gradient(ellipse 90% 20% at 50% 0%, #68247635, transparent),
+      #070709;
+  }
+}
+@media (max-width: 380px) {
+  .account-card {
+    padding: 20px;
+    border-radius: 13px;
+  }
+  .account-card h1 {
+    font-size: 25px;
+  }
+  .card-topline {
+    font-size: 7px;
+    letter-spacing: 0.6px;
+  }
+  .preview-tag {
+    font-size: 7px;
+    padding: 3px 6px;
+  }
+  .signup-prompt {
+    font-size: 10px;
+    gap: 8px;
+  }
+  .brand {
+    font-size: 20px;
+  }
+  .brand small {
+    font-size: 8px;
+  }
+  .brand-symbol {
+    width: 37px;
+    height: 37px;
+    font-size: 26px;
+  }
+  .brand-symbol > span {
+    right: 5px;
+    bottom: 8px;
+  }
+  .home-link {
+    font-size: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .form-field input {
+    transition: none;
+  }
+}
