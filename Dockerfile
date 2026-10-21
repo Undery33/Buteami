@@ -5,6 +5,7 @@ ARG BUILD_NUMBER=local
 
 COPY index.html /usr/share/nginx/html/index.html
 COPY assets/ /usr/share/nginx/html/assets/
+COPY auth/ /usr/share/nginx/html/auth/
 
 # Expose the source revision baked into this image for deployment verification.
 RUN printf '{"release":"web-2026.10.20","commit":"%s","build":"%s"}\n' \
