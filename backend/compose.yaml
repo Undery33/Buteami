@@ -1,0 +1,32 @@
+# Local development only. This file is not used by the web Jenkins pipeline.
+# Copy .env.example to .env and set two different passwords before starting.
+name: buteami-backend
+
+services:
+  mariadb:
+    image: mariadb:11.8
+    restart: "no"
+    environment:
+      MARIADB_DATABASE: ${MARIADB_DATABASE:-buteami}
+      MARIADB_USER: ${MARIADB_USER:-buteami_app}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:?Set MARIADB_PASSWORD in backend/.env}
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?Set MARIADB_ROOT_PASSWORD in backend/.env}
+      MARIADB_ROOT_HOST: localhost
+      TZ: UTC
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+00:00
+    ports:
+      - "127.0.0.1:${MARIADB_PORT:-3306}:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+volumes:
+  mariadb_data:
