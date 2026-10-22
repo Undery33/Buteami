@@ -9,7 +9,7 @@ spec:
         - name: nginx
           env:
             - name: NGINX_ENVSUBST_FILTER
-              value: "^NGINX_RESOLVER$"
+              value: "^(NGINX_RESOLVER|BUTEAMI_API_UPSTREAM)$"
           volumeMounts:
             - name: buteami-nginx-proxy
               mountPath: /etc/nginx/templates/default.conf.template

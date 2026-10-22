@@ -1,6 +1,6 @@
 # Optional local/review image. The existing root Dockerfile/Jenkins stay intact.
 FROM nginx:stable-alpine
-ENV NGINX_ENVSUBST_FILTER="^NGINX_RESOLVER$"
+ENV NGINX_ENVSUBST_FILTER="^(NGINX_RESOLVER|BUTEAMI_API_UPSTREAM)$"
 ARG VCS_REF=local
 ARG BUILD_NUMBER=local
 COPY index.html /usr/share/nginx/html/index.html

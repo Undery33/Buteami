@@ -7,3 +7,13 @@ if [ -z "$NGINX_RESOLVER" ]; then
   exit 1
 fi
 export NGINX_RESOLVER
+
+# Nginx's request-time resolver does not apply the system DNS search suffix.
+# The manifests use the default namespace. Docker's local alias remains useful
+# when the container does not have a Kubernetes service search domain.
+api_search_domain="$(awk '/^search[[:space:]]/ { for (i = 2; i <= NF; i++) if ($i ~ /^default[.]svc[.]/) { print $i; exit } }' /etc/resolv.conf)"
+BUTEAMI_API_UPSTREAM="buteami-api:3000"
+if [ -n "$api_search_domain" ]; then
+  BUTEAMI_API_UPSTREAM="buteami-api.${api_search_domain}:3000"
+fi
+export BUTEAMI_API_UPSTREAM
