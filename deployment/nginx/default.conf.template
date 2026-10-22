@@ -1,5 +1,6 @@
 server {
     listen 80;
+    listen [::]:80;
     server_name _;
     root /usr/share/nginx/html;
     index index.html;
@@ -12,7 +13,7 @@ server {
     location /api/ {
         # A variable defers service lookup until the request. Web still starts
         # and serves static pages when the API Service does not yet exist.
-        set $api_upstream buteami-api:3000;
+        set $api_upstream ${BUTEAMI_API_UPSTREAM};
         proxy_pass http://$api_upstream$request_uri;
         proxy_http_version 1.1;
         proxy_set_header Host $http_host;

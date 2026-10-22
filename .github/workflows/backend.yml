@@ -69,16 +69,40 @@ jobs:
         run: docker build --file deployment/web.Dockerfile --tag buteami-web:ci .
       - name: Build existing web container with inert API include
         run: docker build --tag buteami-web-existing:ci .
-      - name: Verify web starts when the backend service is absent
+      - name: Verify web startup without an API and namespace-qualified service DNS
         run: |
-          docker run --detach --name buteami-web-ci --publish 127.0.0.1:18080:80 buteami-web:ci
-          trap 'docker rm --force buteami-web-ci' EXIT
+          docker network create buteami-web-ci
+          cleanup() {
+            docker rm --force buteami-web-ci buteami-api-ci > /dev/null 2>&1 || true
+            docker network rm buteami-web-ci > /dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          docker run --detach --name buteami-web-ci --network buteami-web-ci \
+            --dns-search default.svc.buteami.test \
+            --publish 127.0.0.1:18080:80 buteami-web:ci
           for attempt in $(seq 1 20); do
-            if curl --fail --silent http://127.0.0.1:18080/ > /dev/null; then break; fi
+            if curl --fail --silent --max-time 5 http://127.0.0.1:18080/ > /dev/null; then break; fi
             sleep 1
           done
-          curl --fail --silent http://127.0.0.1:18080/ > /dev/null
+          curl --fail --silent --max-time 5 http://127.0.0.1:18080/ > /dev/null
           docker exec buteami-web-ci nginx -t
+          docker exec buteami-web-ci nginx -T 2>&1 \
+            | grep -F 'set $api_upstream buteami-api.default.svc.buteami.test:3000;'
+          # Register only the FQDN. A short upstream name must not pass this test.
+          docker run --detach --name buteami-api-ci --network buteami-web-ci \
+            --network-alias buteami-api.default.svc.buteami.test \
+            buteami-api:ci node --input-type=commonjs -e '
+              require("node:http").createServer((request, response) => {
+                response.writeHead(request.url === "/api/health/ready" ? 200 : 404,
+                  { "Content-Type": "application/json" });
+                response.end(JSON.stringify({ status: "ready" }));
+              }).listen(3000, "0.0.0.0");
+            '
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent --max-time 5 http://127.0.0.1:18080/api/health/ready > /dev/null; then break; fi
+            sleep 1
+          done
+          test "$(curl --fail --silent --max-time 5 http://127.0.0.1:18080/api/health/ready)" = '{"status":"ready"}'
       - name: Run integration tests inside the disposable Compose stack
         run: docker compose --project-name buteami-ci --project-directory backend --file backend/compose.yaml --profile test run --build --rm tests
       - name: Start the full local API, database and web stack
