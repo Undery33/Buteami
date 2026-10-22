@@ -1,0 +1,21 @@
+{
+  "name": "buteami-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/server.js",
+    "migrate": "node --env-file-if-exists=.env src/migrate.js",
+    "check-schema": "node --env-file-if-exists=.env src/schema.js",
+    "test": "node --test test/*.test.js",
+    "test:integration": "node --env-file-if-exists=.env --test test/integration/*.test.js"
+  },
+  "dependencies": {
+    "express": "5.3.0",
+    "mysql2": "3.24.6",
+    "nodemailer": "10.2.0"
+  }
+}

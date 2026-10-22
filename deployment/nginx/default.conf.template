@@ -1,0 +1,34 @@
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+    server_tokens off;
+    client_max_body_size 16k;
+
+    resolver ${NGINX_RESOLVER} valid=10s ipv6=off;
+    resolver_timeout 3s;
+
+    location /api/ {
+        # A variable defers service lookup until the request. Web still starts
+        # and serves static pages when the API Service does not yet exist.
+        set $api_upstream buteami-api:3000;
+        proxy_pass http://$api_upstream$request_uri;
+        proxy_http_version 1.1;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 30s;
+        proxy_send_timeout 30s;
+        proxy_hide_header X-Powered-By;
+        access_log off;
+        add_header Cache-Control "no-store" always;
+    }
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}

@@ -58,28 +58,24 @@
       <section class="account-card" aria-labelledby="account-title">
         <div class="card-topline">
           <span>YOUR BUTEAMI ACCOUNT</span
-          ><span class="preview-tag">UI PREVIEW</span>
+          ><span class="preview-tag">ACCOUNT ACCESS</span>
         </div>
         <h1 id="account-title">로그인</h1>
         <p class="form-description">부티미 계정으로 시작하세요.</p>
         <aside class="preview-notice">
           <span class="notice-icon" aria-hidden="true">i</span>
-          <p>
-            <strong>지금은 화면 미리보기 단계예요.</strong><br />DB 연결 전으로
-            실제 처리는 진행되지 않습니다.<br />실제 계정 정보 대신 테스트 값을
-            입력해주세요.
-          </p>
+          <p><strong>안전하게 로그인해주세요.</strong><br />비밀번호를 3회 잘못 입력하면 계정이 잠깁니다. 이메일 인증을 마친 계정으로 로그인할 수 있습니다.</p>
         </aside>
         <noscript
           ><p class="form-summary">
-            입력 화면을 확인하려면 JavaScript를 켜주세요. 현재 입력과 제출은
+            계정 기능을 사용하려면 JavaScript를 켜주세요. 현재 입력과 제출은
             비활성화되어 있습니다.
           </p></noscript
         >
         <form id="account-form" data-form="login" novalidate autocomplete="off">
           <fieldset disabled>
             <legend class="sr-only">로그인 정보 입력</legend>
-            <p class="form-summary" id="form-summary" role="alert" hidden></p>
+            <p class="form-summary" id="form-summary" role="alert" tabindex="-1" hidden></p>
             <div class="form-field">
               <label for="username">아이디</label>
               <div class="input-wrap">
@@ -129,7 +125,7 @@
             <button class="button button-glow submit-button" type="submit">
               로그인<span aria-hidden="true">→</span>
             </button>
-            <p class="form-footnote">입력값은 전송되거나 저장되지 않습니다.</p>
+            <p class="form-footnote">공용 기기에서는 사용 후 로그아웃해주세요.</p>
           </fieldset>
         </form>
         <section
@@ -140,19 +136,18 @@
           hidden
         >
           <span class="result-symbol" aria-hidden="true">◇</span>
-          <h2>입력 형식을 확인했어요</h2>
-          <p>
-            로그인은 처리되지 않았습니다. 실제 계정 인증은 DB 연결 후
-            제공됩니다.
-          </p>
+          <h2 id="result-title"></h2>
+          <p id="result-message"></p>
           <button class="button button-glow" id="try-again" type="button">
             다시 입력하기 <span aria-hidden="true">↻</span>
           </button>
+          <button class="button button-glow" id="logout" type="button" hidden>로그아웃</button>
         </section>
         <nav class="recovery-links" aria-label="계정 찾기">
           <a href="find-id.html">아이디 찾기</a><span aria-hidden="true"></span
           ><a href="reset-password.html">비밀번호 찾기</a>
         </nav>
+        <nav class="recovery-links" aria-label="이메일 인증"><a href="verify-email.html">이메일 인증 · 인증 코드 재요청</a></nav>
         <div class="signup-prompt">
           <span>아직 부티미 계정이 없으신가요?</span
           ><a href="signup.html">회원가입 <span aria-hidden="true">↗</span></a>
@@ -161,7 +156,7 @@
     </main>
     <footer class="account-footer container">
       <span>© 2026 Team Buteami.</span
-      ><span id="release-info">ACCOUNT UI · PREVIEW</span
+      ><span id="release-info">BUTEAMI ACCOUNT</span
       ><span>CONNECT. BUILD. GROW.</span>
     </footer>
   </body>

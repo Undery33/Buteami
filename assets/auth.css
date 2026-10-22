@@ -554,3 +554,25 @@ fieldset {
     transition: none;
   }
 }
+.account-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-block: 18px;
+}
+.account-modes button {
+  flex: 1 1 130px;
+  min-height: 40px;
+  border: 1px solid #644273;
+  border-radius: 7px;
+  padding: 8px;
+  color: #c5b3d3;
+  background: #17101e;
+  font-size: 11px;
+}
+.account-modes button[aria-pressed="true"] {
+  color: #f3d6fc;
+  border-color: #c07adb;
+  background: #34203e;
+}
+.account-page button:disabled { opacity: 0.65; cursor: wait; }
