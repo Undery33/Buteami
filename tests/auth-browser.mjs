@@ -129,7 +129,7 @@ try {
   assert.equal(page.url(),origin+'/');
 
   let resetStatus = 400;
-  responder = async () => ({ status:resetStatus,body:{ message:'internal database details must not render' } });
+  responder = async path => ({ status:path.endsWith('/me') ? 401 : resetStatus,body:{ message:'internal database details must not render' } });
   await page.goto(origin+'/auth/reset-password.html');
   await fill('fullName','테스트 사용자'); await fill('username','demo_user'); await fill('email','demo@example.com');
   await fill('password','xyz789'); await fill('confirmPassword','xyz789');
@@ -137,30 +137,51 @@ try {
   assert.equal(await page.locator('#password').inputValue(),'');
   await fill('fullName','테스트 사용자'); await fill('username','demo_user'); await fill('email','demo@example.com');
   await fill('password','xyz789'); await fill('confirmPassword','xyz789'); await submit(); await visible('form-summary');
+  assert.equal(page.url(),origin+'/auth/reset-password.html','Rejected password reset must not redirect');
   assert.equal(await page.locator('#form-result').isVisible(),false);
   assert.match(await page.locator('#form-summary').textContent(),/이름, 아이디와 이메일이 모두 일치/);
   assert.doesNotMatch(await page.locator('#form-summary').textContent(),/database/);
   assert.equal(await page.locator('#password').inputValue(),'');
+  assert.equal(await page.locator('#confirmPassword').inputValue(),'');
   resetStatus = 200;
   assert.equal(await page.locator('#password').getAttribute('minlength'),'6');
-  await fill('password','xyz789'); await fill('confirmPassword','xyz789'); await submit(); await visible('form-result');
-  assert.match(await page.locator('#result-title').textContent(),/비밀번호를 변경/);
+  await fill('password','xyz789'); await fill('confirmPassword','xyz789'); await submit();
+  await page.waitForURL(origin+'/auth/login.html'); await visible('account-form');
+  assert.equal(await page.locator('#account-form').getAttribute('data-form'),'login');
+  assert.equal(await page.locator('#form-result').isVisible(),false);
+  assert.equal(await page.locator('#password').inputValue(),'');
+  assert.equal(new URL(page.url()).search,'');
+  assert.equal(new URL(page.url()).hash,'');
+  assert.ok(!page.url().includes('xyz789'));
+  assert.equal(await page.evaluate(()=>localStorage.length+sessionStorage.length),0);
   const resetCalls=calls.filter(call=>call.path.endsWith('/reset-password'));
   assert.deepEqual(resetCalls.at(-1).data,{fullName:'테스트 사용자',username:'demo_user',email:'demo@example.com',password:'xyz789',confirmPassword:'xyz789'});
 
   let findStatus=400;
-  responder=async()=>({status:findStatus,body:findStatus===200?{username:'<img src=x onerror=alert(1)>'}:{message:'raw server details'}});
+  responder=async path=>({status:path.endsWith('/me')?401:findStatus,body:findStatus===200?{username:'<img src=x onerror=alert(1)>'}:{message:'raw server details'}});
   await page.goto(origin+'/auth/find-id.html'); await fill('fullName','테스트 사용자'); await fill('email','demo@example.com'); await submit(); await visible('form-summary');
   assert.equal(await page.locator('#form-result').isVisible(),false);
   assert.match(await page.locator('#form-summary').textContent(),/이름과 이메일/);
   findStatus=200; await submit(); await visible('form-result');
   assert.match(await page.locator('#result-message').textContent(),/<img src=x/);
   assert.equal(await page.locator('#form-result img').count(),0,'Recovered ID must be text, never HTML');
+  assert.equal(await page.locator('#try-again').count(),0,'Identifier recovery must offer login instead of retry');
+  assert.equal(await page.locator('#result-login').evaluate(element=>element.tagName),'A');
+  assert.equal(await page.locator('#result-login').getAttribute('href'),'login.html');
+  assert.match(await page.locator('#result-login').textContent(),/로그인하기/);
   assert.deepEqual(calls.filter(call=>call.path.endsWith('/find-id')).at(-1).data,{fullName:'테스트 사용자',email:'demo@example.com'});
   assert.equal(await page.evaluate(() => localStorage.length + sessionStorage.length),0);
   assert.equal(new URL(page.url()).search,'');
   await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
   assert.equal(await page.locator('#result-message').textContent(),'');
+  // Restore the successful result after checking pagehide cleanup, then follow
+  // the native login link while the recovered identifier is still visible.
+  await fill('fullName','테스트 사용자'); await fill('email','demo@example.com'); await submit(); await visible('form-result');
+  assert.match(await page.locator('#result-message').textContent(),/<img src=x/);
+  await page.locator('#result-login').click(); await page.waitForURL(origin+'/auth/login.html'); await visible('account-form');
+  assert.equal(new URL(page.url()).search,'');
+  assert.equal(new URL(page.url()).hash,'');
+  assert.equal(await page.evaluate(()=>localStorage.length+sessionStorage.length),0);
   for (const status of [404,405,502,503]) {
     responder = async () => ({ status,body:{ message:'internal deployment details must not render' } });
     await page.goto(origin+'/auth/login.html'); await fill('username','demo_user'); await fill('password','abc123'); await submit(); await visible('form-summary');
@@ -219,5 +240,5 @@ try {
   assert.equal(remoteApiCalls,0,'Remote HTTP main header must not send a session lookup');
   await remoteContext.close();
   assert.deepEqual(errors,[]);
-  console.log('Browser checks passed: signup redirects to login; login and existing sessions redirect home; malformed successes stay put; header session and safe names; logout cookie/failure/success; long-name mobile width; six-character signup/reset; recovery and ID errors/success; unavailable APIs; pagehide clearing; remote HTTP blocks account requests.');
+  console.log('Browser checks passed: signup/reset redirect to login; recovered ID stays safe text with a native login link; login and existing sessions redirect home; malformed successes stay put; header session and safe names; logout cookie/failure/success; long-name mobile width; six-character signup/reset; recovery and ID errors/success; unavailable APIs; pagehide clearing; remote HTTP blocks account requests.');
 } finally { await browser.close(); await new Promise((done) => server.close(done)); }
