@@ -17,10 +17,10 @@ test("all required empty and whitespace inputs are rejected", () => {
 });
 test("signup and reset enforce new password boundaries and preserve exact confirmation", () => {
   for (const kind of ['signup','reset-password']) {
-    for (const length of [12, 128]) assert.deepEqual(validateAccountForm(kind, { ...valid, password: 'a'.repeat(length), confirmPassword: 'a'.repeat(length) }), {});
-    for (const length of [11, 129]) assert.ok(validateAccountForm(kind, { ...valid, password: 'a'.repeat(length), confirmPassword: 'a'.repeat(length) }).password);
+    for (const length of [6, 128]) assert.deepEqual(validateAccountForm(kind, { ...valid, password: 'a'.repeat(length), confirmPassword: 'a'.repeat(length) }), {});
+    for (const length of [5, 129]) assert.ok(validateAccountForm(kind, { ...valid, password: 'a'.repeat(length), confirmPassword: 'a'.repeat(length) }).password);
     assert.ok(validateAccountForm(kind, { ...valid, confirmPassword: valid.password + ' ' }).confirmPassword);
-    assert.ok(validateAccountForm(kind, { ...valid, password: ' '.repeat(12), confirmPassword: ' '.repeat(12) }).password);
+    assert.ok(validateAccountForm(kind, { ...valid, password: ' '.repeat(6), confirmPassword: ' '.repeat(6) }).password);
   }
   assert.deepEqual(validateAccountForm('login', { ...valid, password: 'a' }), {});
 });

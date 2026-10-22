@@ -41,8 +41,12 @@ test('account mutations use JSON with same-origin cookies and a custom CSRF head
   assert.equal(JSON.parse(options.body).testSecret, secret);
 });
 test('failed requests never expose server error bodies as UI text', async () => {
-  for (const status of [400,401,403,409,423,429,500,503]) {
-    await assert.rejects(accountRequest('login', {}, async () => new Response('<script>database secret</script>', { status })), (error) => !/database|script/.test(error.message));
+  for (const status of [400,401,403,404,405,409,423,429,500,502,503]) {
+    await assert.rejects(accountRequest('login', {}, async () => new Response('<script>database secret</script>', { status })), (error) => {
+      assert.doesNotMatch(error.message,/database|script/);
+      if ([404,405,502,503].includes(status)) assert.equal(error.message,'계정 서비스에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.');
+      return true;
+    });
   }
 });
 test('HTML, malformed JSON, unexpected success statuses, and null responses cannot report success', async () => {

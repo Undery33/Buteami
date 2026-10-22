@@ -43,7 +43,11 @@ try {
   const gate = new Promise((done) => { release = done; });
   responder = async (path) => { if (path.endsWith('/signup')) { await gate; return { status:202,body:{ message:'generic' } }; } return { status:401,body:{} }; };
   await page.goto(origin+'/auth/signup.html');
-  await fill('fullName','테스트 사용자'); await fill('username','demo_user'); await fill('birthday','2000-02-29'); await fill('email','demo@example.com'); await fill('password','new-password-2026'); await fill('confirmPassword','new-password-2026');
+  await fill('fullName','테스트 사용자'); await fill('username','demo_user'); await fill('birthday','2000-02-29'); await fill('email','demo@example.com'); await fill('password','abc12'); await fill('confirmPassword','abc12');
+  await submit(); await visible('form-summary');
+  assert.equal(calls.filter((call) => call.path.endsWith('/signup')).length,0,'Five-character signup password must stay on client');
+  assert.equal(await page.locator('#password').getAttribute('minlength'),'6');
+  await fill('password','abc123'); await fill('confirmPassword','abc123');
   await submit();
   assert.equal(await page.locator('[type=submit]').isDisabled(),true);
   await page.locator('#account-form').evaluate((form) => form.dispatchEvent(new Event('submit',{ bubbles:true,cancelable:true })));
@@ -69,7 +73,8 @@ try {
   await fill('token','a'.repeat(43)); await fill('password','new-password-2026'); await fill('confirmPassword','new-password-2026'); await submit(); await visible('form-summary');
   assert.equal(await page.locator('#form-result').isVisible(),false); assert.doesNotMatch(await page.locator('#form-summary').textContent(),/database/); assert.equal(await page.locator('#token').inputValue(),'');
   resetStatus = 200;
-  await fill('token','a'.repeat(43)); await fill('password','new-password-2026'); await fill('confirmPassword','new-password-2026'); await submit(); await visible('form-result');
+  assert.equal(await page.locator('#password').getAttribute('minlength'),'6');
+  await fill('token','a'.repeat(43)); await fill('password','xyz789'); await fill('confirmPassword','xyz789'); await submit(); await visible('form-result');
   assert.match(await page.locator('#result-title').textContent(),/비밀번호를 변경/);
 
   responder = async (path) => ({ status:path.endsWith('/verify-email') ? 200 : 202,body:{ message:'ok' } });
@@ -82,6 +87,13 @@ try {
   assert.match(await page.locator('#result-message').textContent(),/일치하는 인증된 계정이 있다면/);
   assert.equal(await page.evaluate(() => localStorage.length + sessionStorage.length),0);
   assert.equal(new URL(page.url()).search,'');
+  for (const status of [404,405,502,503]) {
+    responder = async () => ({ status,body:{ message:'internal deployment details must not render' } });
+    await page.goto(origin+'/auth/login.html'); await fill('username','demo_user'); await fill('password','abc123'); await submit(); await visible('form-summary');
+    assert.equal(await page.locator('#form-summary').textContent(),'계정 서비스에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.');
+    assert.equal(await page.locator('#form-result').isVisible(),false);
+    assert.equal(await page.locator('[type=submit]').isDisabled(),false);
+  }
   await page.setViewportSize({ width:375,height:900 });
   await page.goto(origin+'/auth/reset-password.html'); await page.locator('[data-form-kind="reset-password"]').click();
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),false);
@@ -129,5 +141,5 @@ try {
   assert.ok(!remoteRequests.some((request) => request.path.endsWith('/version.json')),'Unsafe setup returns before optional fetches');
   await remoteContext.close();
   assert.deepEqual(errors,[]);
-  console.log('Browser checks passed: signup/pending; login/logout cookie; recovery/reset error+success; verify/resend; find ID; pagehide clearing; mobile width; remote HTTP blocks all account fetches.');
+  console.log('Browser checks passed: six-character signup/reset; signup/pending; login/logout cookie; recovery/reset error+success; verify/resend; find ID; unavailable404/405/502/503; pagehide clearing; mobile width; remote HTTP blocks all account fetches.');
 } finally { await browser.close(); await new Promise((done) => server.close(done)); }
