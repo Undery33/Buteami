@@ -27,9 +27,6 @@ jobs:
         options: >-
           --health-cmd="healthcheck.sh --connect --innodb_initialized"
           --health-interval=5s --health-timeout=5s --health-retries=20
-      mail:
-        image: axllent/mailpit:v1.31.5
-        ports: ["1025:1025"]
     env:
       NODE_ENV: test
       APP_ORIGIN: http://localhost:8080
@@ -43,11 +40,6 @@ jobs:
       DB_TEST_ENABLED: "1"
       LOCAL_DB_PASSWORD: ci-disposable-only
       LOCAL_DB_ROOT_PASSWORD: ci-root-disposable-only
-      SMTP_HOST: 127.0.0.1
-      SMTP_PORT: "1025"
-      SMTP_SECURE: "false"
-      SMTP_FROM: Buteami <no-reply@example.invalid>
-      SMTP_SMOKE_ENABLED: "1"
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -88,12 +80,12 @@ jobs:
           curl --fail --silent http://127.0.0.1:18080/ > /dev/null
           docker exec buteami-web-ci nginx -t
       - name: Run integration tests inside the disposable Compose stack
-        run: docker compose --project-name buteami-ci --project-directory backend --file backend/compose.yaml --profile test run --build --rm -e SMTP_SMOKE_ENABLED=1 tests
-      - name: Start the full local API, database, mail and web stack
+        run: docker compose --project-name buteami-ci --project-directory backend --file backend/compose.yaml --profile test run --build --rm tests
+      - name: Start the full local API, database and web stack
         run: |
           docker compose --project-name buteami-ci --project-directory backend --file backend/compose.yaml --profile app up --build --detach --wait --wait-timeout 120
           curl --fail --silent http://127.0.0.1:8080/api/health/ready
-          curl --fail --silent http://127.0.0.1:8080/auth/verify-email.html > /dev/null
+          curl --fail --silent http://127.0.0.1:8080/auth/login.html > /dev/null
       - name: Stop the disposable Compose stack
         if: always()
         run: docker compose --project-name buteami-ci --project-directory backend --file backend/compose.yaml --profile app --profile test down
