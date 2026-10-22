@@ -32,6 +32,12 @@ test('account forms fail closed without JS and do not use native submission', ()
   }
 });
 test('signup collects database birthday, and recovery supports verification and reset completion', () => {
+  for (const page of ['signup','reset-password']) {
+    const html = readFileSync(new URL(`auth/${page}.html`, root), 'utf8');
+    assert.match(html,/6~128/);
+    for (const [input] of html.matchAll(/<input\b[^>]*type="password"[^>]*>/g)) assert.match(input,/minlength="6"/);
+    assert.doesNotMatch(html,/12~128|minlength="12"/);
+  }
   assert.match(readFileSync(new URL('auth/signup.html', root), 'utf8'), /id="birthday" type="date"/);
   assert.match(readFileSync(new URL('auth/reset-password.html', root), 'utf8'), /data-form-kind="reset-password"/);
   assert.match(readFileSync(new URL('auth/verify-email.html', root), 'utf8'), /data-form-kind="resend-verification"/);

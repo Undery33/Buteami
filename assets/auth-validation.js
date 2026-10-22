@@ -25,7 +25,7 @@ export function validateAccountForm(kind, values, today = new Date()) {
     }
     if (key === "password") {
       if (!trimmed) errors[key] = "비밀번호를 입력해주세요.";
-      else if (value.length > 128 || (kind !== "login" && value.length < 12)) errors[key] = kind === "login" ? "비밀번호는 128자 이내로 입력해주세요." : "비밀번호를 12~128자로 입력해주세요.";
+      else if (value.length > 128 || (kind !== "login" && value.length < 6)) errors[key] = kind === "login" ? "비밀번호는 128자 이내로 입력해주세요." : "비밀번호를 6~128자로 입력해주세요.";
     }
     if (key === "confirmPassword") {
       if (!value) errors[key] = "비밀번호를 한 번 더 입력해주세요.";
