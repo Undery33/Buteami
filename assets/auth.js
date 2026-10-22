@@ -14,6 +14,13 @@ const descriptions = {
   "verify-email": "가입 후 받은 인증 코드를 입력해주세요.",
   "resend-verification": "가입한 아이디와 이메일을 입력해 인증 코드를 다시 요청해주세요.",
 };
+const transportMessage = "개인정보 보호를 위해 HTTPS 연결에서만 계정 기능을 사용할 수 있습니다. HTTPS 주소로 다시 접속해주세요.";
+
+export function isAccountTransportAllowed(location) {
+  if (!location || typeof location.hostname !== "string" || !location.hostname) return false;
+  if (location.protocol === "https:") return true;
+  return location.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
+}
 
 export function apiErrorMessage(status, kind) {
   if (status === 429) return "요청이 많습니다. 잠시 후 다시 시도해주세요.";
@@ -26,6 +33,9 @@ export function apiErrorMessage(status, kind) {
 
 export async function accountRequest(kind, values, fetcher = globalThis.fetch, signal) {
   if (!Object.hasOwn(formFields, kind) && kind !== "logout") throw new Error("Unknown account action");
+  // Check the real browser location before constructing or sending account data.
+  // Node has no location; local non-browser tests inject only their fetch stub.
+  if (typeof globalThis.location !== "undefined" && !isAccountTransportAllowed(globalThis.location)) throw new Error(transportMessage);
   const response = await fetcher(`/api/auth/${kind}`, {
     method: "POST", credentials: "same-origin", cache: "no-store", signal,
     headers: { "Content-Type": "application/json", "X-Buteami-Request": "1" },
@@ -45,6 +55,24 @@ export async function accountRequest(kind, values, fetcher = globalThis.fetch, s
 export function setupAccountPage(doc = document, win = window, fetcher = globalThis.fetch) {
   const form = doc.querySelector("#account-form");
   if (!form || !Object.hasOwn(formFields, form.dataset.form)) return;
+  if (!isAccountTransportAllowed(win.location)) {
+    form.reset();
+    form.hidden = false;
+    form.querySelector("fieldset").disabled = true;
+    form.addEventListener("submit", (event) => event.preventDefault());
+    doc.querySelectorAll("[data-form-kind]").forEach((button) => { button.disabled = true; });
+    doc.querySelector("#form-result").hidden = true;
+    const summary = doc.querySelector("#form-summary");
+    const link = doc.createElement("a");
+    const page = { "request-password-reset": "reset-password", "resend-verification": "verify-email" }[form.dataset.form] || form.dataset.form;
+    link.href = `https://www.buteami.com/auth/${page}.html`;
+    link.textContent = "HTTPS 보안 연결로 계속하기";
+    summary.replaceChildren(doc.createTextNode(transportMessage), doc.createElement("br"), link);
+    summary.hidden = false;
+    summary.focus();
+    win.addEventListener("pagehide", () => form.reset());
+    return;
+  }
   const allInputs = [...form.querySelectorAll("input")];
   const summary = doc.querySelector("#form-summary");
   const result = doc.querySelector("#form-result");
@@ -205,6 +233,7 @@ export function setupAccountPage(doc = document, win = window, fetcher = globalT
   const currentKeys = formFields[form.dataset.form];
   allInputs.forEach((input) => { input.disabled = !currentKeys.includes(input.id); });
   async function checkSession() {
+    if (!isAccountTransportAllowed(win.location)) return;
     const version = ++sessionLookup;
     try {
       const response = await fetcher("/api/auth/me", { credentials: "same-origin", cache: "no-store" });

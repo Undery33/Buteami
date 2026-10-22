@@ -1,6 +1,27 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { accountRequest } from '../assets/auth.js';
+import { accountRequest, isAccountTransportAllowed } from '../assets/auth.js';
+
+test('account transport permits HTTPS and only exact HTTP loopback hosts', () => {
+  for (const url of ['https://www.buteami.com','https://192.168.20.10','https://example.test','http://localhost:8080','http://127.0.0.1:42801','http://[::1]:8080']) assert.equal(isAccountTransportAllowed(new URL(url)), true, url);
+  for (const url of ['http://www.buteami.com','http://192.168.10.110:31991','http://127.0.0.2','http://localhost.example.com','http://localhost.','http://[::2]','file:///auth/login.html','ftp://localhost']) assert.equal(isAccountTransportAllowed(new URL(url)), false, url);
+  for (const location of [undefined,null,{}, {protocol:'http:',hostname:'127.0.0.1.evil.test'}]) assert.equal(isAccountTransportAllowed(location),false);
+});
+
+test('remote HTTP blocks every account mutation before fetch sees credentials', async () => {
+  const prior = Object.getOwnPropertyDescriptor(globalThis, 'location');
+  let calls = 0;
+  try {
+    Object.defineProperty(globalThis, 'location', { configurable:true, value:new URL('http://www.buteami.com/auth/login.html') });
+    for (const kind of ['login','signup','find-id','request-password-reset','reset-password','verify-email','resend-verification','logout']) {
+      await assert.rejects(accountRequest(kind, {password:'never transmit',token:'never transmit'}, async () => { calls++; }), /HTTPS/);
+    }
+    assert.equal(calls,0);
+  } finally {
+    if (prior) Object.defineProperty(globalThis, 'location', prior);
+    else delete globalThis.location;
+  }
+});
 
 test('account mutations use JSON with same-origin cookies and a custom CSRF header', async () => {
   const secret = 'private token or password';

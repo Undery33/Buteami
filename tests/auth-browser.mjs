@@ -86,6 +86,48 @@ try {
   await page.goto(origin+'/auth/reset-password.html'); await page.locator('[data-form-kind="reset-password"]').click();
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),false);
   if (process.env.BUTEAMI_UI_SCREENSHOT) await page.screenshot({ path:process.env.BUTEAMI_UI_SCREENSHOT,fullPage:true });
+  // Intercept every remote-host request locally; this regression never contacts a real remote server.
+  const remoteContext = await browser.newContext();
+  let remoteApiCalls = 0;
+  const remoteRequests = [];
+  await remoteContext.route('**/*', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    remoteRequests.push({ path:url.pathname, method:request.method(), body:request.postData() });
+    if (url.pathname.startsWith('/api/')) {
+      remoteApiCalls++;
+      await route.fulfill({ status:503, contentType:'application/json', body:'{}' });
+      return;
+    }
+    const file = resolve(root, '.' + decodeURIComponent(url.pathname));
+    if (!file.startsWith(root + sep)) { await route.fulfill({ status:403,body:'' }); return; }
+    try { await route.fulfill({ status:200,contentType:types[extname(file)] || 'application/octet-stream',body:await readFile(file) }); }
+    catch { await route.fulfill({ status:404,body:'' }); }
+  });
+  const remotePage = await remoteContext.newPage();
+  remotePage.on('pageerror', (error) => errors.push(error.message));
+  for (const accountPage of ['login','signup','find-id','reset-password','verify-email']) {
+    await remotePage.goto(`http://www.buteami.test/auth/${accountPage}.html`);
+    await remotePage.locator('#form-summary').waitFor({ state:'visible' });
+    assert.match(await remotePage.locator('#form-summary').textContent(),/HTTPS/);
+    assert.equal(await remotePage.locator('[type=submit]').isDisabled(),true);
+    assert.equal(await remotePage.locator('#form-result').isVisible(),false);
+    assert.equal(await remotePage.locator('#form-summary a').getAttribute('href'),`https://www.buteami.com/auth/${accountPage}.html`);
+    await remotePage.locator('#account-form').evaluate((form) => {
+      for (const input of form.querySelectorAll('input')) input.value = 'never-transmit-this-secret';
+      form.dispatchEvent(new Event('submit',{ bubbles:true,cancelable:true }));
+    });
+    const blocked = await remotePage.evaluate(async () => {
+      const { accountRequest } = await import('/assets/auth.js');
+      try { await accountRequest('login',{ username:'demo_user',password:'never-transmit-this-secret' }); return false; }
+      catch (error) { return error.message.includes('HTTPS'); }
+    });
+    assert.equal(blocked,true);
+  }
+  assert.equal(remoteApiCalls,0,'Remote HTTP must not fetch me, login, or any account API');
+  assert.ok(remoteRequests.every((request) => request.method === 'GET' && !request.body),'Remote HTTP must send no form values');
+  assert.ok(!remoteRequests.some((request) => request.path.endsWith('/version.json')),'Unsafe setup returns before optional fetches');
+  await remoteContext.close();
   assert.deepEqual(errors,[]);
-  console.log('Browser checks passed: signup/pending; login/logout cookie; recovery/reset error+success; verify/resend; find ID; pagehide clearing; mobile width.');
+  console.log('Browser checks passed: signup/pending; login/logout cookie; recovery/reset error+success; verify/resend; find ID; pagehide clearing; mobile width; remote HTTP blocks all account fetches.');
 } finally { await browser.close(); await new Promise((done) => server.close(done)); }
