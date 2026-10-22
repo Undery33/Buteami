@@ -22,6 +22,8 @@ spec:
         app: buteami-api
     spec:
       serviceAccountName: buteami-api
+      imagePullSecrets:
+        - name: ghcr-pull
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 30
       securityContext:

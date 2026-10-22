@@ -55,6 +55,7 @@ spec:
 
     environment {
         IMAGE_REPO = 'ghcr.io/undery33/k8s-web-demo'
+        API_IMAGE_REPO = 'ghcr.io/undery33/buteami-api'
     }
 
     stages {
@@ -78,9 +79,12 @@ spec:
                 script {
                     env.IMAGE_REF =
                         "${env.IMAGE_REPO}:build-${env.BUILD_NUMBER}"
+                    env.API_IMAGE_REF =
+                        "${env.API_IMAGE_REPO}:build-${env.BUILD_NUMBER}"
                 }
 
                 echo "Target image: ${env.IMAGE_REF}"
+                echo "Target API image: ${env.API_IMAGE_REF}"
             }
         }
 
@@ -111,6 +115,14 @@ AUTH=$(printf '%s:%s' \
 
 printf '{"auths":{"ghcr.io":{"auth":"%s"}}}\\n' \
   "$AUTH" > "$DOCKER_CONFIG/config.json"
+
+buildctl-daemonless.sh build \
+  --frontend dockerfile.v0 \
+  --local context=backend \
+  --local dockerfile=backend \
+  --opt platform=linux/amd64 \
+  --opt "label:org.opencontainers.image.source=https://github.com/Undery33/Buteami" \
+  --output "type=image,name=${API_IMAGE_REF},push=true"
 
 buildctl-daemonless.sh build \
   --frontend dockerfile.v0 \
