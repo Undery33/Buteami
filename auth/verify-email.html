@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#070709" />
+    <meta name="robots" content="noindex" />
+    <meta name="referrer" content="same-origin" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'"
+    />
+    <title>이메일 인증 | 부티미(Buteami)</title>
+    <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="../assets/styles.css" />
+    <link rel="stylesheet" href="../assets/auth.css" />
+    <script type="module" src="../assets/auth.js"></script>
+  </head>
+  <body class="account-page">
+    <a class="skip-link" href="#account-main">본문으로 바로가기</a>
+    <header class="account-header container">
+      <a class="brand" href="../index.html" aria-label="부티미 홈"
+        ><span class="brand-symbol" aria-hidden="true">b<span>:</span></span
+        ><span
+          >buteami<span class="brand-dot">.</span
+          ><small>Cloud Infrastructure Team</small></span
+        ></a
+      ><a class="home-link" href="../index.html"
+        >프로젝트 홈 <span aria-hidden="true">↗</span></a
+      >
+    </header>
+    <main class="account-layout container" id="account-main">
+      <section class="account-story" aria-label="부티미 소개">
+        <p class="eyebrow">ACCOUNT RECOVERY</p>
+        <h2>새로운 시작도,<br /><span>안전한 연결로.</span></h2>
+        <p class="story-intro">
+          계정의 주인을 확인하는 것부터.<br />안전한 계정 복구를 위한 첫
+          단계입니다.
+        </p>
+        <div class="connection-art" aria-hidden="true">
+          <div class="art-label">
+            <span>BUTEAMI WORKSPACE</span><span>01 / CONNECT</span>
+          </div>
+          <div class="connection-visual">
+            <span class="orbit-ring ring-one"></span
+            ><span class="orbit-ring ring-two"></span
+            ><span class="connection-core">b<span>:</span></span
+            ><span class="art-satellite satellite-one">Network</span
+            ><span class="art-satellite satellite-two">Build</span
+            ><span class="art-satellite satellite-three">Together</span>
+          </div>
+          <p>서로의 연결이, 더 나은 인프라를 만듭니다.</p>
+        </div>
+        <p class="story-academy">
+          부산IT아카데미 <span>×</span> 부티미(Buteami)
+        </p>
+      </section>
+      <section class="account-card" aria-labelledby="account-title">
+        <div class="card-topline">
+          <span>YOUR BUTEAMI ACCOUNT</span
+          ><span class="preview-tag">ACCOUNT ACCESS</span>
+        </div>
+        <h1 id="account-title">이메일 인증</h1>
+        <p class="form-description">가입 후 받은 인증 코드를 입력해주세요.</p>
+        <aside class="preview-notice">
+          <span class="notice-icon" aria-hidden="true">i</span>
+          <p><strong>가입 이메일을 확인해주세요.</strong><br />이메일에 포함된 일회용 코드를 복사해 붙여넣어주세요. 코드는 30분 동안 사용할 수 있습니다.</p>
+        </aside>
+        <nav class="account-modes" aria-label="이메일 인증 단계"><button type="button" data-form-kind="verify-email" data-submit-label="이메일 인증" aria-pressed="true">인증 코드 입력</button><button type="button" data-form-kind="resend-verification" data-submit-label="인증 코드 재요청" aria-pressed="false">인증 코드 재요청</button></nav>
+        <noscript
+          ><p class="form-summary">
+            계정 기능을 사용하려면 JavaScript를 켜주세요. 현재 입력과 제출은
+            비활성화되어 있습니다.
+          </p></noscript
+        >
+        <form
+          id="account-form"
+          data-form="verify-email"
+          novalidate
+          autocomplete="off"
+        >
+          <fieldset disabled>
+            <legend class="sr-only">이메일 인증 정보 입력</legend>
+            <p class="form-summary" id="form-summary" role="alert" tabindex="-1" hidden></p>
+<div data-fields="verify-email"><div class="form-field"><label for="token">이메일 인증 코드</label><div class="input-wrap"><input id="token" type="text" autocomplete="off" maxlength="43" aria-describedby="token-error" required autocapitalize="none" spellcheck="false" /></div><p id="token-error" class="field-error" hidden></p></div></div>
+<div data-fields="resend-verification" hidden><div class="form-field"><label for="username">아이디</label><div class="input-wrap"><input id="username" type="text" autocomplete="username" maxlength="20" aria-describedby="username-error" required autocapitalize="none" spellcheck="false" /></div><p id="username-error" class="field-error" hidden></p></div><div class="form-field"><label for="email">이메일</label><div class="input-wrap"><input id="email" type="email" autocomplete="email" maxlength="254" inputmode="email" aria-describedby="email-error" required autocapitalize="none" spellcheck="false" /></div><p id="email-error" class="field-error" hidden></p></div></div>
+            <button class="button button-glow submit-button" type="submit">
+              이메일 인증<span aria-hidden="true">→</span>
+            </button>
+            <p class="form-footnote">인증 코드는 이 화면에서만 입력하고 다른 사람과 공유하지 마세요.</p>
+          </fieldset>
+        </form>
+        <section
+          id="form-result"
+          class="form-result"
+          role="status"
+          tabindex="-1"
+          hidden
+        >
+          <span class="result-symbol" aria-hidden="true">◇</span>
+          <h2 id="result-title"></h2>
+          <p id="result-message"></p>
+          <button class="button button-glow" id="try-again" type="button">
+            다시 입력하기 <span aria-hidden="true">↻</span>
+          </button>
+        </section>
+        <nav class="recovery-links" aria-label="계정 메뉴">
+          <a href="login.html">로그인으로 돌아가기</a
+          ><span aria-hidden="true"></span><a href="signup.html">회원가입</a>
+        </nav>
+      </section>
+    </main>
+    <footer class="account-footer container">
+      <span>© 2026 Team Buteami.</span
+      ><span id="release-info">BUTEAMI ACCOUNT</span
+      ><span>CONNECT. BUILD. GROW.</span>
+    </footer>
+  </body>
+</html>
