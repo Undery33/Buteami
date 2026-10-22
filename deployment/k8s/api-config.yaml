@@ -16,8 +16,3 @@ data:
   # Set to /etc/buteami/db-ca/ca.crt after provisioning buteami-db-ca.
   DB_TLS_CA_FILE: ""
   TRUST_PROXY_CIDRS: ""
-  # REQUIRED: reviewed SMTP provider and verified sender.
-  SMTP_HOST: smtp.example.invalid
-  SMTP_PORT: "587"
-  SMTP_SECURE: "false"
-  SMTP_FROM: Buteami <no-reply@example.invalid>

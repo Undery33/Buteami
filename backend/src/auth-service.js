@@ -1,40 +1,15 @@
 import { transaction } from './db.js';
 import { hashPassword, verifyPassword, randomToken, digest, validToken, PublicError } from './security.js';
-import { enqueueMail } from './mail.js';
 
-const loginFailure = () => new PublicError(401, '로그인할 수 없습니다. 입력 정보, 이메일 인증 또는 비밀번호 재설정을 확인해주세요.');
-const tokenFailure = () => new PublicError(400, '인증 코드가 올바르지 않거나 만료되었습니다. 다시 요청해주세요.');
+const loginFailure = () => new PublicError(401, '로그인할 수 없습니다. 입력 정보 또는 비밀번호 재설정을 확인해주세요.');
+const recoveryFailure = () => new PublicError(400, '이름, 아이디, 이메일이 일치하는지 확인해주세요.');
 const publicUser = user => ({ username: user.id, fullName: user.name });
 
-export function createAuthService({ pool, config }) {
-  async function issueToken(connection, user, purpose) {
-    const token = randomToken();
-    const minutes = purpose === 'verify' ? 30 : 15;
-    // A replacement invalidates prior codes. Queue delivery remains independent of the response time.
-    await connection.execute('DELETE FROM auth_tokens WHERE user_id=? AND purpose=?', [user.id, purpose]);
-    await connection.execute(`INSERT INTO auth_tokens(token_hash,user_id,purpose,expires_at)
-      VALUES (?,?,?,DATE_ADD(UTC_TIMESTAMP(3),INTERVAL ? MINUTE))`, [digest(token), user.id, purpose, minutes]);
-    const label = purpose === 'verify' ? '이메일 인증' : '비밀번호 재설정';
-    const page = purpose === 'verify' ? 'verify-email' : 'reset-password';
-    await enqueueMail(connection, config, { to: user.email, subject: `[부티미] ${label}`,
-      text: `${label} 화면: ${config.origin}/auth/${page}.html\n\n인증 코드: ${token}\n\n${minutes}분 안에 화면에 코드를 직접 붙여넣으세요. 요청하지 않았다면 무시하세요.` });
-  }
+export function createAuthService({ pool }) {
   async function withUser(id, action) {
     return transaction(pool, async connection => {
       const [rows] = await connection.execute('SELECT * FROM users WHERE id=? FOR UPDATE', [id]);
       return action(connection, rows[0]);
-    });
-  }
-  async function useToken(token, purpose, action) {
-    if (!validToken(token)) throw tokenFailure();
-    const [candidates] = await pool.execute('SELECT user_id FROM auth_tokens WHERE token_hash=? AND purpose=?', [digest(token), purpose]);
-    if (!candidates.length) throw tokenFailure();
-    return withUser(candidates[0].user_id, async (connection, user) => {
-      // Same lock ordering as login: user first, then token. Recheck validity under both locks.
-      const [tokens] = await connection.execute(`SELECT token_hash FROM auth_tokens WHERE token_hash=? AND purpose=?
-        AND expires_at > UTC_TIMESTAMP(3) FOR UPDATE`, [digest(token), purpose]);
-      if (!user || !tokens.length) throw tokenFailure();
-      return action(connection, user);
     });
   }
   return {
@@ -43,11 +18,12 @@ export function createAuthService({ pool, config }) {
       try {
         await transaction(pool, async connection => {
           await connection.execute(`INSERT INTO users (id,password_hash,birthday,email,name,account_active,failed_login_attempts,account_locked)
-            VALUES (?,?,?,?,?,0,0,0)`, [data.username, passwordHash, data.birthday, data.email, data.fullName]);
-          await connection.execute('INSERT INTO auth_pending_registrations (user_id) VALUES (?)', [data.username]);
-          await issueToken(connection, { id: data.username, email: data.email }, 'verify');
+            VALUES (?,?,?,?,?,1,0,0)`, [data.username, passwordHash, data.birthday, data.email, data.fullName]);
         });
-      } catch (error) { if (error.code !== 'ER_DUP_ENTRY') throw error; }
+      } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY') throw new PublicError(409, '이미 사용 중인 아이디 또는 이메일입니다.');
+        throw error;
+      }
     },
     async login(data, oldToken) {
       const outcome = await withUser(data.username, async (connection, user) => {
@@ -69,41 +45,20 @@ export function createAuthService({ pool, config }) {
       if (!outcome) throw loginFailure();
       return outcome;
     },
-    async verifyEmail({ token }) {
-      await useToken(token, 'verify', async (connection, user) => {
-        const [pending] = await connection.execute('SELECT user_id FROM auth_pending_registrations WHERE user_id=?', [user.id]);
-        if (!pending.length || user.account_active) throw tokenFailure();
-        await connection.execute('UPDATE users SET account_active=1 WHERE id=?', [user.id]);
-        await connection.execute('DELETE FROM auth_pending_registrations WHERE user_id=?', [user.id]);
-        await connection.execute('DELETE FROM auth_tokens WHERE user_id=?', [user.id]);
-      });
-    },
-    async resendVerification(data) {
-      await withUser(data.username, async (connection, user) => {
-        if (!user || user.account_active || user.email.toLowerCase() !== data.email) return;
-        const [pending] = await connection.execute('SELECT user_id FROM auth_pending_registrations WHERE user_id=?', [user.id]);
-        if (pending.length) await issueToken(connection, user, 'verify');
-      });
-    },
-    async requestPasswordReset(data) {
-      await withUser(data.username, async (connection, user) => {
-        if (user?.account_active && user.email.toLowerCase() === data.email) await issueToken(connection, user, 'reset');
-      });
-    },
-    async resetPassword({ token, password }) {
+    async resetPassword({ username, fullName, email, password }) {
       const passwordHash = await hashPassword(password);
-      await useToken(token, 'reset', async (connection, user) => {
-        if (!user.account_active) throw tokenFailure();
+      await withUser(username, async (connection, user) => {
+        // Project recovery policy: match all three fields under the same user lock.
+        // This checks registration data, not possession of the email account.
+        if (!user?.account_active || user.name !== fullName || user.email.toLowerCase() !== email) throw recoveryFailure();
         await connection.execute('UPDATE users SET password_hash=?,failed_login_attempts=0,account_locked=0 WHERE id=?', [passwordHash, user.id]);
-        await connection.execute('DELETE FROM auth_tokens WHERE user_id=?', [user.id]);
         await connection.execute('DELETE FROM auth_sessions WHERE user_id=?', [user.id]);
       });
     },
     async findId(data) {
-      await transaction(pool, async connection => {
-        const [users] = await connection.execute('SELECT id,email FROM users WHERE name=? AND email=? AND account_active=1', [data.fullName, data.email]);
-        if (users.length) await enqueueMail(connection, config, { to: users[0].email, subject: '[부티미] 아이디 안내', text: `등록된 아이디: ${users[0].id}\n로그인: ${config.origin}/auth/login.html\n요청하지 않았다면 무시하세요.` });
-      });
+      const [users] = await pool.execute('SELECT id,name,email FROM users WHERE email=? AND account_active=1', [data.email]);
+      if (!users.length || users[0].name !== data.fullName) throw new PublicError(400, '입력 정보와 일치하는 아이디를 찾을 수 없습니다.');
+      return { username: users[0].id };
     },
     async me(token) {
       if (!validToken(token)) throw loginFailure();

@@ -1,4 +1,4 @@
-import { randomBytes, scrypt as deriveKey, timingSafeEqual, createHash, createHmac, createCipheriv, createDecipheriv } from 'node:crypto';
+import { randomBytes, scrypt as deriveKey, timingSafeEqual, createHash, createHmac } from 'node:crypto';
 import { promisify } from 'node:util';
 
 const scrypt = promisify(deriveKey);
@@ -29,16 +29,3 @@ export const randomToken = () => randomBytes(32).toString('base64url');
 export const digest = value => createHash('sha256').update(value).digest('hex');
 export const bucketKey = (secret, value) => createHmac('sha256', secret).update(value).digest('hex');
 export const validToken = value => typeof value === 'string' && /^[A-Za-z0-9_-]{43}$/.test(value);
-
-export function sealMail(secret, payload) {
-  const nonce = randomBytes(12);
-  const cipher = createCipheriv('aes-256-gcm', Buffer.from(digest(secret), 'hex'), nonce);
-  const encrypted = Buffer.concat([cipher.update(JSON.stringify(payload), 'utf8'), cipher.final()]);
-  return Buffer.concat([nonce, cipher.getAuthTag(), encrypted]).toString('base64');
-}
-export function openMail(secret, sealed) {
-  const data = Buffer.from(sealed, 'base64');
-  const decipher = createDecipheriv('aes-256-gcm', Buffer.from(digest(secret), 'hex'), data.subarray(0, 12));
-  decipher.setAuthTag(data.subarray(12, 28));
-  return JSON.parse(Buffer.concat([decipher.update(data.subarray(28)), decipher.final()]).toString('utf8'));
-}

@@ -53,16 +53,6 @@ spec:
                 secretKeyRef:
                   name: buteami-api-secrets
                   key: APP_SECRET
-            - name: SMTP_USER
-              valueFrom:
-                secretKeyRef:
-                  name: buteami-api-secrets
-                  key: SMTP_USER
-            - name: SMTP_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: buteami-api-secrets
-                  key: SMTP_PASSWORD
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

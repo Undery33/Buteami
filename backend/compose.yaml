@@ -16,12 +16,6 @@ x-local-environment: &local-environment
   DB_TLS_CA_FILE: ""
   APP_SECRET: ${APP_SECRET:?Set a random APP_SECRET of at least 32 bytes in backend/.env}
   TRUST_PROXY_CIDRS: ""
-  SMTP_HOST: mail
-  SMTP_PORT: "1025"
-  SMTP_SECURE: "false"
-  SMTP_USER: ""
-  SMTP_PASSWORD: ""
-  SMTP_FROM: Buteami <no-reply@example.invalid>
 
 services:
   db:
@@ -45,11 +39,6 @@ services:
       retries: 20
       start_period: 30s
 
-  mail:
-    image: axllent/mailpit:v1.31.5
-    ports:
-      - "127.0.0.1:${LOCAL_MAIL_UI_PORT:-8025}:8025"
-
   migrate:
     profiles: ["app"]
     build: .
@@ -68,8 +57,6 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
-      mail:
-        condition: service_started
     read_only: true
     tmpfs: ["/tmp:size=16m,mode=1777"]
     cap_drop: ["ALL"]
@@ -102,8 +89,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      mail:
-        condition: service_started
 
 volumes:
   local_db:

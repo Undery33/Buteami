@@ -25,22 +25,21 @@ export function createApp({ pool, config, service = createAuthService({ pool, co
   app.get('/api/health/live', (request, response) => response.json({ status: 'ok' }));
   app.get('/api/health/ready', async (request, response) => {
     try {
-      await pool.query('SELECT 1 FROM users,auth_pending_registrations,auth_sessions,auth_tokens,auth_rate_limits,auth_mail_outbox LIMIT 0');
+      await pool.query('SELECT 1 FROM users,auth_sessions,auth_rate_limits LIMIT 0');
       response.json({ status: 'ready' });
     }
     catch { response.status(503).json({ status: 'unavailable' }); }
   });
   app.get('/api/auth/me', async (request, response) => response.json(await service.me(sessionToken(request))));
   const actions = {
-    signup: 'signup', 'verify-email': 'verifyEmail', 'resend-verification': 'resendVerification',
-    'request-password-reset': 'requestPasswordReset', 'reset-password': 'resetPassword', 'find-id': 'findId', login: 'login',
+    signup: 'signup', 'reset-password': 'resetPassword', 'find-id': 'findId', login: 'login',
   };
   for (const [path, method] of Object.entries(actions)) {
     app.post(`/api/auth/${path}`, async (request, response) => {
       // Shared database buckets work across API replicas and restarts. Never persist raw IP/email.
       await limitRate(pool, config.secret, 'auth-ip', request.ip, 120, 900);
       const input = validateInput(path, request.body);
-      const key = input.username.toLowerCase() || input.email || input.token;
+      const key = input.username.toLowerCase() || input.email;
       await limitRate(pool, config.secret, path, key, path === 'login' ? 15 : 5, 900);
       const result = await service[method](input, sessionToken(request));
       if (path === 'login') {
@@ -48,10 +47,9 @@ export function createApp({ pool, config, service = createAuthService({ pool, co
         return response.json({ user: result.user });
       }
       if (path === 'reset-password') response.clearCookie(cookieName, cookieOptions);
-      if (['signup', 'find-id', 'resend-verification', 'request-password-reset'].includes(path)) {
-        return response.status(202).json({ message: '입력 정보가 일치하면 등록된 이메일로 안내를 보냅니다. 메일이 오지 않으면 잠시 후 다시 요청해주세요.' });
-      }
-      response.json({ message: path === 'verify-email' ? '이메일 인증을 완료했습니다. 로그인해주세요.' : '비밀번호를 재설정했습니다. 다시 로그인해주세요.' });
+      if (path === 'find-id') return response.json(result);
+      if (path === 'signup') return response.status(201).json({ message: '회원가입을 완료했습니다. 로그인해주세요.' });
+      response.json({ message: '비밀번호를 재설정했습니다. 다시 로그인해주세요.' });
     });
   }
   app.post('/api/auth/logout', async (request, response) => {

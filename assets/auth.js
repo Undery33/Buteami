@@ -1,18 +1,8 @@
 import { formFields, validateAccountForm } from "./auth-validation.js";
 
 const success = {
-  signup: ["가입 요청을 접수했어요", "가입 가능한 정보라면 입력한 이메일로 인증 코드를 보냅니다. 이메일 인증 후 로그인할 수 있습니다."],
-  "find-id": ["아이디 안내를 요청했어요", "일치하는 인증된 계정이 있다면 등록된 이메일로 아이디를 안내합니다. 메일함과 스팸함을 확인해주세요."],
-  "request-password-reset": ["재설정 안내를 요청했어요", "일치하는 인증된 계정이 있다면 등록된 이메일로 인증 코드를 보냅니다. 코드를 받은 뒤 아래에서 비밀번호를 재설정해주세요."],
+  signup: ["회원가입을 완료했어요", "이제 가입한 아이디와 비밀번호로 로그인할 수 있습니다."],
   "reset-password": ["비밀번호를 변경했어요", "계정 잠금이 해제되고 기존 로그인은 종료됩니다. 새 비밀번호로 로그인해주세요."],
-  "verify-email": ["이메일 인증을 완료했어요", "이제 로그인할 수 있습니다."],
-  "resend-verification": ["인증 안내를 요청했어요", "인증이 필요한 계정 정보가 일치한다면 이메일로 새 인증 코드를 보냅니다. 메일함과 스팸함을 확인해주세요."],
-};
-const descriptions = {
-  "request-password-reset": "가입한 아이디와 이메일을 입력해주세요.",
-  "reset-password": "이메일로 받은 인증 코드와 새 비밀번호를 입력해주세요.",
-  "verify-email": "가입 후 받은 인증 코드를 입력해주세요.",
-  "resend-verification": "가입한 아이디와 이메일을 입력해 인증 코드를 다시 요청해주세요.",
 };
 const transportMessage = "개인정보 보호를 위해 HTTPS 연결에서만 계정 기능을 사용할 수 있습니다. HTTPS 주소로 다시 접속해주세요.";
 const unavailableMessage = "계정 서비스에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.";
@@ -27,8 +17,12 @@ export function apiErrorMessage(status, kind) {
   if ([404, 405, 502, 503].includes(status)) return unavailableMessage;
   if (status === 429) return "요청이 많습니다. 잠시 후 다시 시도해주세요.";
   if (status === 409 && kind === "signup") return "가입 정보를 사용할 수 없습니다. 입력 내용을 확인해주세요.";
-  if (status === 423 || (status === 401 && kind === "login")) return "로그인할 수 없습니다. 아이디, 비밀번호와 이메일 인증 여부를 확인해주세요. 비밀번호 3회 실패로 잠긴 계정은 비밀번호 재설정으로 복구할 수 있습니다.";
-  if (status === 400 || status === 422) return "입력 정보를 확인해주세요. 인증 코드는 만료되거나 이미 사용되었을 수 있습니다.";
+  if (status === 423 || (status === 401 && kind === "login")) return "로그인할 수 없습니다. 아이디와 비밀번호를 확인해주세요. 비밀번호 3회 실패로 잠긴 계정은 비밀번호 재설정으로 복구할 수 있습니다.";
+  if (status === 400 || status === 422) {
+    if (kind === "find-id") return "입력한 회원 정보가 일치하지 않습니다. 이름과 이메일을 확인해주세요.";
+    if (kind === "reset-password") return "입력한 회원 정보를 확인해주세요. 이름, 아이디와 이메일이 모두 일치해야 합니다.";
+    return "입력 정보를 확인해주세요.";
+  }
   if (status === 403) return "요청을 확인할 수 없습니다. 페이지를 새로고침한 뒤 다시 시도해주세요.";
   return "요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.";
 }
@@ -44,13 +38,14 @@ export async function accountRequest(kind, values, fetcher = globalThis.fetch, s
     body: JSON.stringify(values),
   });
   if (!response.ok) throw new Error(apiErrorMessage(response.status, kind));
-  const expectedStatus = ["signup", "find-id", "request-password-reset", "resend-verification"].includes(kind) ? 202 : 200;
+  const expectedStatus = kind === "signup" ? 201 : 200;
   if (response.status !== expectedStatus) throw new Error("서버 응답을 확인할 수 없습니다. 잠시 후 다시 시도해주세요.");
   // A proxy's HTML error page must never appear as a completed account action.
   let data;
   try { data = await response.json(); }
   catch { throw new Error("서버 응답을 확인할 수 없습니다. 잠시 후 다시 시도해주세요."); }
   if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("서버 응답을 확인할 수 없습니다. 잠시 후 다시 시도해주세요.");
+  if (kind === "find-id" && (typeof data.username !== "string" || !data.username.trim() || data.username.length > 50)) throw new Error("아이디를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.");
   return data;
 }
 
@@ -62,11 +57,10 @@ export function setupAccountPage(doc = document, win = window, fetcher = globalT
     form.hidden = false;
     form.querySelector("fieldset").disabled = true;
     form.addEventListener("submit", (event) => event.preventDefault());
-    doc.querySelectorAll("[data-form-kind]").forEach((button) => { button.disabled = true; });
     doc.querySelector("#form-result").hidden = true;
     const summary = doc.querySelector("#form-summary");
     const link = doc.createElement("a");
-    const page = { "request-password-reset": "reset-password", "resend-verification": "verify-email" }[form.dataset.form] || form.dataset.form;
+    const page = form.dataset.form;
     link.href = `https://www.buteami.com/auth/${page}.html`;
     link.textContent = "HTTPS 보안 연결로 계속하기";
     summary.replaceChildren(doc.createTextNode(transportMessage), doc.createElement("br"), link);
@@ -83,7 +77,6 @@ export function setupAccountPage(doc = document, win = window, fetcher = globalT
   const retry = doc.querySelector("#try-again");
   const logout = doc.querySelector("#logout");
   const toggles = [...doc.querySelectorAll("[data-password]")];
-  const modeButtons = [...doc.querySelectorAll("[data-form-kind]")];
   let touched = new Set();
   let pending = false;
   let sessionLookup = 0;
@@ -107,7 +100,7 @@ export function setupAccountPage(doc = document, win = window, fetcher = globalT
     });
   }
   function clearSensitive() {
-    allInputs.filter((input) => ["password", "confirmPassword", "token"].includes(input.id)).forEach((input) => { input.value = ""; });
+    allInputs.filter((input) => ["password", "confirmPassword"].includes(input.id)).forEach((input) => { input.value = ""; });
     hidePasswords();
   }
   function setPending(value) {
@@ -115,7 +108,6 @@ export function setupAccountPage(doc = document, win = window, fetcher = globalT
     fieldset.disabled = value;
     form.setAttribute("aria-busy", String(value));
     submit.textContent = value ? "처리 중…" : submit.dataset.label;
-    modeButtons.forEach((button) => { button.disabled = value; });
   }
   function resetForm() {
     form.reset();
@@ -125,6 +117,8 @@ export function setupAccountPage(doc = document, win = window, fetcher = globalT
     summary.hidden = true;
     summary.textContent = "";
     result.hidden = true;
+    doc.getElementById("result-title").textContent = "";
+    doc.getElementById("result-message").textContent = "";
     form.hidden = false;
     retry.hidden = false;
     if (logout) logout.hidden = true;
@@ -142,20 +136,6 @@ export function setupAccountPage(doc = document, win = window, fetcher = globalT
   function showSession(data) {
     if (!data.user || typeof data.user.username !== "string") throw new Error("로그인 상태를 확인하지 못했습니다. 페이지를 새로고침해주세요.");
     showResult("로그인되어 있어요", `${data.user.fullName || data.user.username} (${data.user.username}) 계정으로 로그인되어 있습니다.`, true);
-  }
-  function setMode(kind, label) {
-    if (pending || !Object.hasOwn(formFields, kind)) return;
-    sessionLookup += 1;
-    resetForm();
-    form.dataset.form = kind;
-    const enabled = formFields[kind];
-    allInputs.forEach((input) => { input.disabled = !enabled.includes(input.id); });
-    doc.querySelectorAll("[data-fields]").forEach((group) => { group.hidden = group.dataset.fields !== kind; });
-    submit.dataset.label = label;
-    submit.textContent = label;
-    if (descriptions[kind]) doc.querySelector(".form-description").textContent = descriptions[kind];
-    modeButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.formKind === kind)));
-    inputs()[0]?.focus();
   }
   submit.dataset.label = submit.textContent.trim().replace(/→$/, "").trim();
   form.addEventListener("submit", async (event) => {
@@ -180,6 +160,7 @@ export function setupAccountPage(doc = document, win = window, fetcher = globalT
       const response = await accountRequest(kind, data, fetcher, requestController.signal);
       if (requestController.signal.aborted) return;
       if (kind === "login") showSession(response);
+      else if (kind === "find-id") showResult("아이디를 확인했어요", `가입한 아이디는 ${response.username}입니다.`);
       else showResult(...success[kind]);
     } catch (error) {
       if (requestController.signal.aborted) return;
@@ -210,7 +191,6 @@ export function setupAccountPage(doc = document, win = window, fetcher = globalT
     button.setAttribute("aria-pressed", String(visible));
     button.setAttribute("aria-label", `${input.labels[0].textContent} ${visible ? "숨기기" : "표시"}`);
   }));
-  modeButtons.forEach((button) => button.addEventListener("click", () => setMode(button.dataset.formKind, button.dataset.submitLabel)));
   retry.addEventListener("click", () => { resetForm(); inputs()[0].focus(); });
   logout?.addEventListener("click", async () => {
     if (pending) return;

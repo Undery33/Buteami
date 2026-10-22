@@ -3,11 +3,8 @@ import { loadConfig } from './config.js';
 import { createPool } from './db.js';
 
 const authColumns = {
-  auth_pending_registrations: ['user_id', 'created_at'],
   auth_sessions: ['token_hash', 'user_id', 'expires_at'],
-  auth_tokens: ['token_hash', 'user_id', 'purpose', 'expires_at'],
   auth_rate_limits: ['bucket_hash', 'hits', 'reset_at'],
-  auth_mail_outbox: ['id', 'payload', 'attempts', 'available_at', 'lease_until', 'claim_hash', 'created_at'],
 };
 export async function assertSchema(pool, { usersOnly = false, allowMissingUsers = false } = {}) {
   const [tables] = await pool.query('SELECT TABLE_NAME,ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()');
@@ -55,17 +52,12 @@ export async function assertSchema(pool, { usersOnly = false, allowMissingUsers 
     for (const column of actual.values()) {
       const name = column.COLUMN_NAME;
       if (!fields.includes(name) && column.IS_NULLABLE === 'NO' && column.COLUMN_DEFAULT === null && !column.EXTRA.includes('auto_increment')) fail(`unhandled required ${table}.${name}`);
-      if (['token_hash', 'bucket_hash', 'claim_hash'].includes(name) || (table === 'auth_mail_outbox' && name === 'id')) {
+      if (['token_hash', 'bucket_hash'].includes(name)) {
         if (column.DATA_TYPE !== 'char' || column.CHARACTER_MAXIMUM_LENGTH !== 64 || column.COLLATION_NAME !== 'ascii_bin') fail(`${table}.${name} must be CHAR(64) ascii_bin`);
       }
-      if (['expires_at', 'reset_at', 'available_at', 'lease_until'].includes(name) && column.DATA_TYPE !== 'datetime') fail(`${table}.${name} DATETIME required`);
-      if (name === 'purpose' && column.COLUMN_TYPE !== "enum('verify','reset')") fail(`${table}.purpose enum mismatch`);
-      if (['hits','attempts'].includes(name) && (!['int', 'tinyint'].includes(column.DATA_TYPE) || !column.COLUMN_TYPE.includes('unsigned'))) fail(`${table}.${name} unsigned integer required`);
-      if (name === 'payload' && !['text','mediumtext','longtext'].includes(column.DATA_TYPE)) fail(`${table}.payload text required`);
-      if (fields.includes(name) && !['lease_until', 'claim_hash'].includes(name) && column.IS_NULLABLE !== 'NO') fail(`${table}.${name} must be NOT NULL`);
-      if (['lease_until','claim_hash'].includes(name) && column.IS_NULLABLE !== 'YES') fail(`${table}.${name} must allow an empty lease`);
-      if (name === 'attempts' && String(column.COLUMN_DEFAULT) !== '0') fail(`${table}.attempts requires default 0`);
-      if (name === 'created_at' && (!['timestamp','datetime'].includes(column.DATA_TYPE) || !/current_timestamp/i.test(column.COLUMN_DEFAULT || ''))) fail(`${table}.created_at requires a timestamp default`);
+      if (['expires_at', 'reset_at'].includes(name) && column.DATA_TYPE !== 'datetime') fail(`${table}.${name} DATETIME required`);
+      if (name === 'hits' && (!['int', 'tinyint'].includes(column.DATA_TYPE) || !column.COLUMN_TYPE.includes('unsigned'))) fail(`${table}.${name} unsigned integer required`);
+      if (fields.includes(name) && column.IS_NULLABLE !== 'NO') fail(`${table}.${name} must be NOT NULL`);
     }
   }
 }

@@ -18,7 +18,6 @@ export function loadConfig(env = process.env) {
   if (production && (origin.protocol !== 'https:' || !secure)) throw new Error('Production requires HTTPS and Secure cookies');
   const secret = required('APP_SECRET');
   if (Buffer.byteLength(secret) < 32) throw new Error('APP_SECRET requires at least 32 bytes');
-  const smtpSecure = env.SMTP_SECURE === 'true';
   const dbHost = env.DB_HOST || '192.168.20.10';
   // mysql2 only performs hostname identity checks with a DNS hostname. Fail closed
   // rather than silently accepting a CA-signed certificate for a different IP.
@@ -29,10 +28,5 @@ export function loadConfig(env = process.env) {
     db: { host: dbHost, port: integer('DB_PORT', 3306),
       database: env.DB_NAME || 'buteami_db', user: env.DB_USER || 'buteami_app', password: required('DB_PASSWORD'),
       ...(env.DB_TLS_CA_FILE ? { ssl: { ca: readFileSync(env.DB_TLS_CA_FILE), rejectUnauthorized: true, verifyIdentity: true } } : {}) },
-    smtp: { host: required('SMTP_HOST'), port: integer('SMTP_PORT', 587), secure: smtpSecure,
-      requireTLS: production && !smtpSecure, auth: env.SMTP_USER ? { user: env.SMTP_USER, pass: required('SMTP_PASSWORD') } : undefined,
-      connectionTimeout: 15000, greetingTimeout: 15000, socketTimeout: 15000,
-      tls: { rejectUnauthorized: true } },
-    mailFrom: required('SMTP_FROM'),
   };
 }

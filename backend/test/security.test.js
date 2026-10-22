@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync, unlinkSync, rmdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { rootCertificates } from 'node:tls';
-import { hashPassword, verifyPassword, randomToken, validToken, digest, sealMail, openMail } from '../src/security.js';
+import { hashPassword, verifyPassword, randomToken, validToken, digest } from '../src/security.js';
 import { validateInput } from '../src/validation.js';
 import { loadConfig } from '../src/config.js';
 
@@ -15,7 +15,6 @@ const input = {
 const config = {
   NODE_ENV: 'development', APP_ORIGIN: 'http://localhost:8080', COOKIE_SECURE: 'false',
   APP_SECRET: 'test-only-configuration-key-32-bytes-minimum', DB_PASSWORD: 'test-only-db-password',
-  SMTP_HOST: 'localhost', SMTP_FROM: 'Buteami <test@example.invalid>',
 };
 
 test('password hashing uses distinct salts and verifies exact whitespace without plaintext storage', async () => {
@@ -48,18 +47,6 @@ test('opaque tokens have high entropy and only hashes need be persisted', () => 
   }
 });
 
-test('mail outbox encryption conceals recovery data and rejects tampering or another key', () => {
-  const payload = { to: 'review@example.com', text: `https://example.com/#token=${randomToken()}` };
-  const sealed = sealMail(config.APP_SECRET, payload);
-  assert.deepEqual(openMail(config.APP_SECRET, sealed), payload);
-  assert.ok(!sealed.includes(payload.to));
-  assert.notEqual(sealMail(config.APP_SECRET, payload), sealed);
-  assert.throws(() => openMail('different-key-which-cannot-open-mail', sealed));
-  const bytes = Buffer.from(sealed, 'base64');
-  bytes[bytes.length - 1] ^= 1;
-  assert.throws(() => openMail(config.APP_SECRET, bytes.toString('base64')));
-});
-
 test('server validates real calendar dates, password confirmation and hostile identifiers', () => {
   assert.equal(validateInput('signup', input).password, input.password);
   assert.equal(validateInput('signup', input).email, 'review@example.com');
@@ -82,8 +69,8 @@ test('server validates real calendar dates, password confirmation and hostile id
 test('production configuration requires an exact HTTPS origin, secure cookies and secret material', () => {
   assert.equal(loadConfig(config).origin, config.APP_ORIGIN);
   const production = { ...config, NODE_ENV: 'production', APP_ORIGIN: 'https://buteami.example', COOKIE_SECURE: 'true' };
-  assert.equal(loadConfig(production).smtp.requireTLS, true);
   assert.equal(loadConfig(production).secure, true);
+  assert.equal(Object.hasOwn(loadConfig(production), 'smtp'), false);
   for (const change of [
     { APP_ORIGIN: 'http://buteami.example' }, { COOKIE_SECURE: 'false' },
     { APP_ORIGIN: 'https://buteami.example/' }, { APP_ORIGIN: 'https://buteami.example/path' },
@@ -95,14 +82,26 @@ test('signup and reset accept six-character passwords and reject shorter or mism
   for (const kind of ['signup', 'reset-password']) {
     for (const length of [6, 128]) {
       const password = 'a'.repeat(length);
-      assert.equal(validateInput(kind, { ...input, token: 'a'.repeat(43), password, confirmPassword: password }).password, password);
+      assert.equal(validateInput(kind, { ...input, password, confirmPassword: password }).password, password);
     }
     for (const length of [0, 5, 129]) {
       const password = 'a'.repeat(length);
-      assert.throws(() => validateInput(kind, { ...input, token: 'a'.repeat(43), password, confirmPassword: password }), error => error.status === 400);
+      assert.throws(() => validateInput(kind, { ...input, password, confirmPassword: password }), error => error.status === 400);
     }
-    assert.throws(() => validateInput(kind, { ...input, token: 'a'.repeat(43), password: ' '.repeat(6), confirmPassword: ' '.repeat(6) }));
-    assert.throws(() => validateInput(kind, { ...input, token: 'a'.repeat(43), password: 'abcdef', confirmPassword: 'abcdeg' }));
+    assert.throws(() => validateInput(kind, { ...input, password: ' '.repeat(6), confirmPassword: ' '.repeat(6) }));
+    assert.throws(() => validateInput(kind, { ...input, password: 'abcdef', confirmPassword: 'abcdeg' }));
+  }
+});
+
+test('password reset requires a valid name, identifier and email together', () => {
+  const result = validateInput('reset-password', input);
+  assert.equal(result.fullName, input.fullName);
+  assert.equal(result.username, input.username);
+  assert.equal(result.email, 'review@example.com');
+  for (const field of ['fullName', 'username', 'email']) {
+    for (const value of ['', '   ', null, []]) {
+      assert.throws(() => validateInput('reset-password', { ...input, [field]: value }), error => error.status === 400);
+    }
   }
 });
 
