@@ -1,0 +1,9 @@
+#!/bin/sh
+# Sourced by the official nginx entrypoint before 20-envsubst-on-templates.sh.
+# Discover the actual pod/container resolver; do not assume a cluster DNS IP.
+NGINX_RESOLVER="$(awk '/^nameserver[[:space:]]/ { if (index($2, ":")) print "[" $2 "]"; else print $2; exit }' /etc/resolv.conf)"
+if [ -z "$NGINX_RESOLVER" ]; then
+  echo "No nameserver configured in /etc/resolv.conf" >&2
+  exit 1
+fi
+export NGINX_RESOLVER

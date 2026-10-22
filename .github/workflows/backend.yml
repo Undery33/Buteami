@@ -1,0 +1,89 @@
+name: Backend verification
+
+on:
+  pull_request:
+    paths: ["backend/**", "deployment/**", "assets/**", "auth/**", "tests/**", "package.json", "Dockerfile", ".dockerignore", ".github/workflows/backend.yml"]
+  push:
+    branches: [main, feature/back-end]
+    paths: ["backend/**", "deployment/**", "assets/**", "auth/**", "tests/**", "package.json", "Dockerfile", ".dockerignore", ".github/workflows/backend.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_DATABASE: buteami_test
+          MARIADB_USER: buteami_test
+          MARIADB_PASSWORD: ci-disposable-only
+          MARIADB_ROOT_PASSWORD: ci-root-disposable-only
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+      mail:
+        image: axllent/mailpit:v1.31.5
+        ports: ["1025:1025"]
+    env:
+      NODE_ENV: test
+      APP_ORIGIN: http://localhost:8080
+      COOKIE_SECURE: "false"
+      APP_SECRET: ci-only-disposable-secret-at-least-32-bytes
+      DB_HOST: 127.0.0.1
+      DB_PORT: "3306"
+      DB_NAME: buteami_test
+      DB_USER: buteami_test
+      DB_PASSWORD: ci-disposable-only
+      DB_TEST_ENABLED: "1"
+      LOCAL_DB_PASSWORD: ci-disposable-only
+      LOCAL_DB_ROOT_PASSWORD: ci-root-disposable-only
+      SMTP_HOST: 127.0.0.1
+      SMTP_PORT: "1025"
+      SMTP_SECURE: "false"
+      SMTP_FROM: Buteami <no-reply@example.invalid>
+      SMTP_SMOKE_ENABLED: "1"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Frontend tests
+        run: npm test
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: backend
+      - name: Backend unit tests
+        run: npm test
+        working-directory: backend
+      - name: Check additive migration on disposable MariaDB
+        run: npm run migrate && npm run check-schema
+        working-directory: backend
+      - name: MariaDB integration tests
+        run: npm run test:integration
+        working-directory: backend
+      - name: Build API container
+        run: docker build --tag buteami-api:ci backend
+      - name: Validate local Compose configuration
+        run: docker compose --project-directory backend --file backend/compose.yaml --profile app --profile test config --quiet
+      - name: Build web integration container
+        run: docker build --file deployment/web.Dockerfile --tag buteami-web:ci .
+      - name: Build existing web container with inert API include
+        run: docker build --tag buteami-web-existing:ci .
+      - name: Verify web starts when the backend service is absent
+        run: |
+          docker run --detach --name buteami-web-ci --publish 127.0.0.1:18080:80 buteami-web:ci
+          trap 'docker rm --force buteami-web-ci' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:18080/ > /dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:18080/ > /dev/null
+          docker exec buteami-web-ci nginx -t

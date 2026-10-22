@@ -1,0 +1,74 @@
+# Explicit maintenance operation only. Do not include in an automatic deploy.
+# Back up users and inspect/check-schema before running; use a separate DB identity.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: buteami-auth-migration-001
+  namespace: default
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app: buteami-auth-migration
+    spec:
+      restartPolicy: Never
+      serviceAccountName: buteami-api
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: ghcr.io/undery33/buteami-api:release-version-required
+          command: ["npm", "run", "migrate"]
+          envFrom:
+            - configMapRef:
+                name: buteami-api-config
+            - secretRef:
+                name: buteami-api-secrets
+          env:
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: buteami-migration-secrets
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: buteami-migration-secrets
+                  key: DB_PASSWORD
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 384Mi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: db-ca
+              mountPath: /etc/buteami/db-ca
+              readOnly: true
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
+        - name: db-ca
+          secret:
+            secretName: buteami-db-ca
+            optional: true
+            items:
+              - key: ca.crt
+                path: ca.crt

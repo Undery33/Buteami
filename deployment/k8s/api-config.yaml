@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: buteami-api-config
+  namespace: default
+data:
+  NODE_ENV: production
+  PORT: "3000"
+  # Confirm the existing HTTPS certificate/trust before rollout.
+  APP_ORIGIN: https://www.buteami.com
+  COOKIE_SECURE: "true"
+  DB_HOST: "192.168.20.10"
+  DB_PORT: "3306"
+  DB_NAME: buteami_db
+  DB_USER: buteami_app
+  # Set to /etc/buteami/db-ca/ca.crt after provisioning buteami-db-ca.
+  DB_TLS_CA_FILE: ""
+  TRUST_PROXY_CIDRS: ""
+  # REQUIRED: reviewed SMTP provider and verified sender.
+  SMTP_HOST: smtp.example.invalid
+  SMTP_PORT: "587"
+  SMTP_SECURE: "false"
+  SMTP_FROM: Buteami <no-reply@example.invalid>

@@ -1,32 +1,109 @@
-# Local development only. This file is not used by the web Jenkins pipeline.
-# Copy .env.example to .env and set two different passwords before starting.
-name: buteami-backend
+# Disposable LOCAL integration stack only; never deploy this database.
+# From backend/: docker compose --profile app up --build
+# Tests only: docker compose --profile test run --build --rm tests
+name: buteami-backend-local
+
+x-local-environment: &local-environment
+  NODE_ENV: development
+  PORT: "3000"
+  APP_ORIGIN: http://localhost:${LOCAL_WEB_PORT:-8080}
+  COOKIE_SECURE: "false"
+  DB_HOST: db
+  DB_PORT: "3306"
+  DB_NAME: buteami_test
+  DB_USER: buteami_test
+  DB_PASSWORD: ${LOCAL_DB_PASSWORD:?Set LOCAL_DB_PASSWORD in backend/.env}
+  DB_TLS_CA_FILE: ""
+  APP_SECRET: ${APP_SECRET:?Set a random APP_SECRET of at least 32 bytes in backend/.env}
+  TRUST_PROXY_CIDRS: ""
+  SMTP_HOST: mail
+  SMTP_PORT: "1025"
+  SMTP_SECURE: "false"
+  SMTP_USER: ""
+  SMTP_PASSWORD: ""
+  SMTP_FROM: Buteami <no-reply@example.invalid>
 
 services:
-  mariadb:
-    image: mariadb:11.8
-    restart: "no"
+  db:
+    image: mariadb:10.11
     environment:
-      MARIADB_DATABASE: ${MARIADB_DATABASE:-buteami}
-      MARIADB_USER: ${MARIADB_USER:-buteami_app}
-      MARIADB_PASSWORD: ${MARIADB_PASSWORD:?Set MARIADB_PASSWORD in backend/.env}
-      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?Set MARIADB_ROOT_PASSWORD in backend/.env}
+      MARIADB_DATABASE: buteami_test
+      MARIADB_USER: buteami_test
+      MARIADB_PASSWORD: ${LOCAL_DB_PASSWORD:?Set LOCAL_DB_PASSWORD in backend/.env}
+      MARIADB_ROOT_PASSWORD: ${LOCAL_DB_ROOT_PASSWORD:?Set LOCAL_DB_ROOT_PASSWORD in backend/.env}
       MARIADB_ROOT_HOST: localhost
       TZ: UTC
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
-      - --default-time-zone=+00:00
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci", "--default-time-zone=+00:00"]
     ports:
-      - "127.0.0.1:${MARIADB_PORT:-3306}:3306"
+      - "127.0.0.1:${LOCAL_DB_PORT:-13306}:3306"
     volumes:
-      - mariadb_data:/var/lib/mysql
+      - local_db:/var/lib/mysql
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
-      retries: 10
-      start_period: 40s
+      retries: 20
+      start_period: 30s
+
+  mail:
+    image: axllent/mailpit:v1.31.5
+    ports:
+      - "127.0.0.1:${LOCAL_MAIL_UI_PORT:-8025}:8025"
+
+  migrate:
+    profiles: ["app"]
+    build: .
+    init: true
+    environment: *local-environment
+    command: ["npm", "run", "migrate"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    profiles: ["app"]
+    build: .
+    init: true
+    environment: *local-environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      mail:
+        condition: service_started
+    read_only: true
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    networks:
+      default:
+        aliases: ["buteami-api"]
+
+  web:
+    profiles: ["app"]
+    build:
+      context: ..
+      dockerfile: deployment/web.Dockerfile
+    ports:
+      - "127.0.0.1:${LOCAL_WEB_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_started
+
+  tests:
+    profiles: ["test"]
+    build:
+      context: .
+      target: test
+    init: true
+    environment:
+      <<: *local-environment
+      NODE_ENV: test
+      DB_TEST_ENABLED: "1"
+    depends_on:
+      db:
+        condition: service_healthy
+      mail:
+        condition: service_started
 
 volumes:
-  mariadb_data:
+  local_db:

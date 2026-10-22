@@ -1,0 +1,15 @@
+# Review/render only. This intentionally excludes the maintenance migration Job
+# and the patch for the existing nginx Deployment.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: default
+resources:
+  - k8s/api-config.yaml
+  - k8s/api.yaml
+configMapGenerator:
+  - name: buteami-nginx-proxy
+    files:
+      - nginx/default.conf.template
+      - nginx/15-buteami-resolver.envsh
+generatorOptions:
+  disableNameSuffixHash: true

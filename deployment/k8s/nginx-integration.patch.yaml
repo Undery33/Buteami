@@ -1,0 +1,26 @@
+# Strategic merge patch for the EXISTING default Deployment/nginx. This file
+# is not a complete Deployment and must not be applied as a standalone object.
+# HTTP-upstream integration only: do NOT use when default.conf contains the
+# existing HTTPS server/certificates. Use api-location.conf in that server instead.
+spec:
+  template:
+    spec:
+      containers:
+        - name: nginx
+          env:
+            - name: NGINX_ENVSUBST_FILTER
+              value: "^NGINX_RESOLVER$"
+          volumeMounts:
+            - name: buteami-nginx-proxy
+              mountPath: /etc/nginx/templates/default.conf.template
+              subPath: default.conf.template
+              readOnly: true
+            - name: buteami-nginx-proxy
+              mountPath: /docker-entrypoint.d/15-buteami-resolver.envsh
+              subPath: 15-buteami-resolver.envsh
+              readOnly: true
+      volumes:
+        - name: buteami-nginx-proxy
+          configMap:
+            name: buteami-nginx-proxy
+            defaultMode: 365 # 0555: official nginx entrypoint sources .envsh.
