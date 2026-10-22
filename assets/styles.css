@@ -185,6 +185,61 @@ a:focus-visible,
   background: #291a34;
   color: #f3d6fc !important;
 }
+.header-account {
+  position: relative;
+  flex-shrink: 0;
+}
+.header-session,
+.header-user-label {
+  display: flex;
+  align-items: center;
+}
+.header-session {
+  gap: 10px;
+  color: #f3d6fc;
+  font-size: 13px;
+}
+.header-user-label {
+  min-width: 0;
+  white-space: nowrap;
+}
+#header-user {
+  display: block;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.header-logout {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid #735081;
+  border-radius: 6px;
+  background: #291a34;
+  color: #f3d6fc;
+  font-size: 12px;
+}
+.header-logout:hover {
+  background: #3b2549;
+}
+.header-logout:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+.header-status {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: max-content;
+  max-width: min(280px, calc(100vw - 40px));
+  padding: 10px 12px;
+  border: 1px solid #814657;
+  border-radius: 7px;
+  background: #351b29;
+  color: #f8c1ce;
+  font-size: 11px;
+  line-height: 1.6;
+}
 .hero {
   position: relative;
   padding: 66px 0 0;
@@ -1187,6 +1242,27 @@ a:focus-visible,
   #main-nav a {
     padding: 11px 15px;
     font-size: 14px;
+  }
+  .header-account {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #493452;
+  }
+  .header-account > .nav-login {
+    display: flex;
+  }
+  .header-session {
+    justify-content: space-between;
+    padding: 8px 15px;
+  }
+  #header-user {
+    max-width: clamp(80px, 35vw, 160px);
+  }
+  .header-status {
+    position: static;
+    width: auto;
+    max-width: none;
+    margin-top: 8px;
   }
   .hero {
     padding-top: 55px;

@@ -12,6 +12,7 @@
     <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="assets/styles.css" />
     <script src="assets/app.js" defer></script>
+    <script type="module" src="assets/header-session.js"></script>
   </head>
   <body>
     <a class="skip-link" href="#main">본문으로 바로가기</a>
@@ -40,9 +41,16 @@
           ><a href="#architecture">인프라 구성</a
           ><a href="#technology">사용 기술</a
           ><a href="#delivery">배포 이야기</a>
-          <a class="nav-login" href="auth/login.html"
-            >로그인 <span aria-hidden="true">↗</span></a
-          >
+          <div class="header-account">
+            <a class="nav-login" id="header-login" href="auth/login.html"
+              >로그인 <span aria-hidden="true">↗</span></a
+            >
+            <div class="header-session" id="header-session" hidden>
+              <span class="header-user-label"><span id="header-user"></span>님</span>
+              <button class="header-logout" id="header-logout" type="button">로그아웃</button>
+            </div>
+            <p class="header-status" id="header-status" role="alert" hidden></p>
+          </div>
         </nav>
         <a
           class="header-github"
