@@ -91,6 +91,21 @@ test('production configuration requires an exact HTTPS origin, secure cookies an
   ]) assert.throws(() => loadConfig({ ...production, ...change }));
 });
 
+test('signup and reset accept six-character passwords and reject shorter or mismatched values', () => {
+  for (const kind of ['signup', 'reset-password']) {
+    for (const length of [6, 128]) {
+      const password = 'a'.repeat(length);
+      assert.equal(validateInput(kind, { ...input, token: 'a'.repeat(43), password, confirmPassword: password }).password, password);
+    }
+    for (const length of [0, 5, 129]) {
+      const password = 'a'.repeat(length);
+      assert.throws(() => validateInput(kind, { ...input, token: 'a'.repeat(43), password, confirmPassword: password }), error => error.status === 400);
+    }
+    assert.throws(() => validateInput(kind, { ...input, token: 'a'.repeat(43), password: ' '.repeat(6), confirmPassword: ' '.repeat(6) }));
+    assert.throws(() => validateInput(kind, { ...input, token: 'a'.repeat(43), password: 'abcdef', confirmPassword: 'abcdeg' }));
+  }
+});
+
 test('database TLS verifies certificate identity and rejects IP hosts before a connection is attempted', () => {
   const directory = mkdtempSync(join(tmpdir(), 'buteami-ca-test-'));
   const ca = join(directory, 'ca.pem');

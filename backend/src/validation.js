@@ -11,7 +11,7 @@ export function validateInput(kind, data) {
   if (['signup', 'find-id', 'request-password-reset', 'resend-verification'].includes(kind) &&
       (result.email.length > 254 || !/^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z]{2,63}$/.test(result.email))) invalid();
   if (['signup', 'login', 'reset-password'].includes(kind) && (!result.password.trim() || result.password.length > 128 ||
-      (kind !== 'login' && (result.password.length < 12 || data.confirmPassword !== result.password)))) invalid();
+      (kind !== 'login' && (result.password.length < 6 || data.confirmPassword !== result.password)))) invalid();
   if (['verify-email', 'reset-password'].includes(kind) && !/^[A-Za-z0-9_-]{43}$/.test(result.token)) invalid();
   if (kind === 'signup') {
     const date = new Date(`${result.birthday}T00:00:00Z`);
