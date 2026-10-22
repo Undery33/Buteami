@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
+import { formFields } from '../assets/auth-validation.js';
 const root = new URL('../', import.meta.url);
-const pages = ['login', 'find-id', 'reset-password', 'signup'];
+const pages = ['login', 'find-id', 'reset-password', 'signup', 'verify-email'];
 
 test('all account pages resolve their local assets and navigation targets', () => {
   for (const page of pages) {
@@ -14,16 +15,25 @@ test('all account pages resolve their local assets and navigation targets', () =
     }
   }
 });
-test('preview forms fail closed before JS attaches and cannot submit native form data', () => {
+test('account forms fail closed without JS and do not use native submission', () => {
   for (const page of pages) {
     const html = readFileSync(new URL(`auth/${page}.html`, root), 'utf8');
     assert.match(html, /<fieldset disabled>/);
     assert.match(html, /form-action 'none'/);
     assert.match(html, /<noscript\b[^>]*>/);
+    assert.match(html, /id="form-summary" role="alert" tabindex="-1"/);
+    assert.match(html, /id="result-title"/);
+    assert.doesNotMatch(html, /UI PREVIEW|입력값은 전송되거나 저장되지 않습니다|DB 연결 전/);
     for (const [input] of html.matchAll(/<input\b[^>]*>/g)) assert.doesNotMatch(input, /\bname=/);
+    const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
+    assert.equal(ids.length, new Set(ids).size, `${page}: duplicate element IDs`);
+    const kinds = [...html.matchAll(/data-(?:form|form-kind)="([^"]+)"/g)].map((match) => match[1]);
+    for (const kind of kinds) for (const key of formFields[kind]) assert.ok(ids.includes(key), `${page}/${kind}: missing ${key}`);
   }
 });
-test('auth directory is shipped by the NGINX image and README stays empty', () => {
-  assert.match(readFileSync(new URL('Dockerfile', root), 'utf8'), /COPY auth\/ \/usr\/share\/nginx\/html\/auth\//);
-  assert.equal(readFileSync(new URL('README.md', root)).length, 0);
+test('signup collects database birthday, and recovery supports verification and reset completion', () => {
+  assert.match(readFileSync(new URL('auth/signup.html', root), 'utf8'), /id="birthday" type="date"/);
+  assert.match(readFileSync(new URL('auth/reset-password.html', root), 'utf8'), /data-form-kind="reset-password"/);
+  assert.match(readFileSync(new URL('auth/verify-email.html', root), 'utf8'), /data-form-kind="resend-verification"/);
+  assert.match(readFileSync(new URL('auth/login.html', root), 'utf8'), /id="logout"/);
 });

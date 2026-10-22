@@ -58,7 +58,7 @@
       <section class="account-card" aria-labelledby="account-title">
         <div class="card-topline">
           <span>YOUR BUTEAMI ACCOUNT</span
-          ><span class="preview-tag">UI PREVIEW</span>
+          ><span class="preview-tag">ACCOUNT ACCESS</span>
         </div>
         <h1 id="account-title">회원가입</h1>
         <p class="form-description">
@@ -66,15 +66,11 @@
         </p>
         <aside class="preview-notice">
           <span class="notice-icon" aria-hidden="true">i</span>
-          <p>
-            <strong>지금은 화면 미리보기 단계예요.</strong><br />DB 연결 전으로
-            실제 처리는 진행되지 않습니다.<br />실제 계정 정보 대신 테스트 값을
-            입력해주세요.
-          </p>
+          <p><strong>이메일 인증이 필요해요.</strong><br />가입 요청 후 이메일로 받은 인증 코드를 입력하면 계정이 활성화됩니다. 비밀번호는 12~128자로 입력해주세요.</p>
         </aside>
         <noscript
           ><p class="form-summary">
-            입력 화면을 확인하려면 JavaScript를 켜주세요. 현재 입력과 제출은
+            계정 기능을 사용하려면 JavaScript를 켜주세요. 현재 입력과 제출은
             비활성화되어 있습니다.
           </p></noscript
         >
@@ -86,7 +82,7 @@
         >
           <fieldset disabled>
             <legend class="sr-only">회원가입 정보 입력</legend>
-            <p class="form-summary" id="form-summary" role="alert" hidden></p>
+            <p class="form-summary" id="form-summary" role="alert" tabindex="-1" hidden></p>
             <div class="form-field">
               <label for="fullName">이름</label>
               <div class="input-wrap">
@@ -123,6 +119,11 @@
                 영문, 숫자, 밑줄(_) 4~20자
               </p>
               <p id="username-error" class="field-error" hidden></p>
+            </div>
+<div class="form-field">
+              <label for="birthday">생년월일</label>
+              <div class="input-wrap"><input id="birthday" type="date" autocomplete="bday" min="1900-01-01" aria-describedby="birthday-error" required /></div>
+              <p id="birthday-error" class="field-error" hidden></p>
             </div>
             <div class="form-field">
               <label for="email">이메일</label>
@@ -200,7 +201,7 @@
             <button class="button button-glow submit-button" type="submit">
               회원가입<span aria-hidden="true">→</span>
             </button>
-            <p class="form-footnote">입력값은 전송되거나 저장되지 않습니다.</p>
+            <p class="form-footnote">인증 코드는 이 화면에서만 입력하고 다른 사람과 공유하지 마세요.</p>
           </fieldset>
         </form>
         <section
@@ -211,15 +212,13 @@
           hidden
         >
           <span class="result-symbol" aria-hidden="true">◇</span>
-          <h2>입력 형식을 확인했어요</h2>
-          <p>
-            회원가입은 처리되지 않았습니다. 입력한 정보는 저장되지 않으며 실제
-            가입은 DB 연결 후 제공됩니다.
-          </p>
+          <h2 id="result-title"></h2>
+          <p id="result-message"></p>
           <button class="button button-glow" id="try-again" type="button">
             다시 입력하기 <span aria-hidden="true">↻</span>
           </button>
         </section>
+        <nav class="recovery-links" aria-label="이메일 인증"><a href="verify-email.html">이메일 인증 · 인증 코드 재요청</a></nav>
         <div class="signup-prompt">
           <span>이미 계정이 있으신가요?</span
           ><a href="login.html">로그인 <span aria-hidden="true">↗</span></a>
@@ -228,7 +227,7 @@
     </main>
     <footer class="account-footer container">
       <span>© 2026 Team Buteami.</span
-      ><span id="release-info">ACCOUNT UI · PREVIEW</span
+      ><span id="release-info">BUTEAMI ACCOUNT</span
       ><span>CONNECT. BUILD. GROW.</span>
     </footer>
   </body>
