@@ -7,7 +7,8 @@ import { createPool, transaction } from '../../src/db.js';
 import { createAuthService } from '../../src/auth-service.js';
 import { createApp } from '../../src/app.js';
 import { assertSchema } from '../../src/schema.js';
-import { digest, openMail } from '../../src/security.js';
+import { applyMigrations } from '../../src/migrate.js';
+import { digest, openMail, hashPassword } from '../../src/security.js';
 import { validateInput } from '../../src/validation.js';
 import { limitRate } from '../../src/rate-limit.js';
 import { deliverMailBatch } from '../../src/mail.js';
@@ -27,11 +28,31 @@ test('MariaDB authentication and HTTP security integration', { skip: !enabled },
   const secondPool = createPool(config);
   t.after(async () => { await secondPool.end(); await pool.end(); });
   const sql = await readFile(new URL('../../migrations/001-auth.sql', import.meta.url), 'utf8');
-  for (const statement of sql.replace(/^--.*$/gm, '').split(';').map(value => value.trim()).filter(Boolean)) await pool.query(statement);
-  await assertSchema(pool);
+  const tables = ['auth_pending_registrations', 'auth_sessions', 'auth_tokens', 'auth_rate_limits', 'auth_mail_outbox', 'users'];
+  // Reproduce the actual user-supplied production DDL in this disposable DB.
+  // No operation here can reach the private production address because of the guards above.
+  for (const table of tables) await pool.query(`DROP TABLE IF EXISTS ${table}`);
+  await pool.query(`CREATE TABLE users (
+    id VARCHAR(50) NOT NULL PRIMARY KEY,
+    password_hash VARCHAR(255) NOT NULL,
+    birthday DATE DEFAULT NULL,
+    email VARCHAR(254) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    account_active TINYINT(1) NOT NULL DEFAULT 1,
+    failed_login_attempts INT(11) NOT NULL DEFAULT 0,
+    account_locked TINYINT(1) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY email (email)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`);
+  const legacyPassword = 'legacy6';
+  const legacyHash = await hashPassword(legacyPassword);
+  await pool.execute('INSERT INTO users(id,password_hash,email,name) VALUES (?,?,?,?)', ['legacy_user', legacyHash, 'legacy@example.com', '이'.repeat(100)]);
+  await pool.execute(`INSERT INTO users(id,password_hash,birthday,email,name,account_active,failed_login_attempts,account_locked,created_at)
+    VALUES (?,?,?,?,?,0,3,1,?)`, ['l'.repeat(50), legacyHash, '1980-01-01', 'long-id@example.com', '기존 잠금 계정', '2020-01-02 03:04:05']);
+  const originalDdl = (await pool.query('SHOW CREATE TABLE users'))[0][0]['Create Table'];
+  const originalRows = (await pool.query('SELECT * FROM users ORDER BY id'))[0];
   const service = createAuthService({ pool, config });
   const secondService = createAuthService({ pool: secondPool, config });
-  const tables = ['auth_pending_registrations', 'auth_sessions', 'auth_tokens', 'auth_rate_limits', 'auth_mail_outbox', 'users'];
   const clear = async () => { for (const table of tables) await pool.query(`DELETE FROM ${table}`); };
   const userInput = (username, changes = {}) => ({ username, fullName: '테스트 사용자', email: `${username}@example.com`, birthday: '2000-02-29',
     password: 'original-password-2026', confirmPassword: 'original-password-2026', ...changes });
@@ -54,6 +75,32 @@ test('MariaDB authentication and HTTP security integration', { skip: !enabled },
     return userInput(username);
   };
   const rejectsPublic = (promise, status = 401) => assert.rejects(promise, error => error.status === status);
+
+  await t.test('additive migration preserves the supplied existing users DDL and every preexisting value', async () => {
+    await assertSchema(pool, { usersOnly: true });
+    assert.doesNotMatch(sql.replace(/^--.*$/gm, ''), /\b(?:ALTER|DROP)\s+TABLE\b/i);
+    for (let run = 0; run < 2; run++) {
+      await applyMigrations(pool);
+      await assertSchema(pool);
+      assert.equal((await pool.query('SHOW CREATE TABLE users'))[0][0]['Create Table'], originalDdl);
+      assert.deepEqual((await pool.query('SELECT * FROM users ORDER BY id'))[0], originalRows);
+    }
+    const [columns] = await pool.query(`SELECT TABLE_NAME,CHARACTER_MAXIMUM_LENGTH,COLLATION_NAME
+      FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND COLUMN_NAME='user_id'`);
+    assert.equal(columns.length, 3);
+    for (const column of columns) {
+      assert.equal(column.CHARACTER_MAXIMUM_LENGTH, 50);
+      assert.equal(column.COLLATION_NAME, 'utf8mb4_general_ci');
+    }
+  });
+
+  await t.test('an existing active account with nullable birthday and six-character password can authenticate', async () => {
+    const result = await service.login(validateInput('login', { username: 'legacy_user', password: legacyPassword }));
+    assert.equal(result.user.username, 'legacy_user');
+    assert.equal((await getUser('legacy_user')).birthday, null);
+    assert.equal(result.user.fullName.length, 100);
+    assert.deepEqual(await service.me(result.token), { user: result.user });
+  });
 
   await t.test('signup persists only a salted hash and requires single-use email ownership verification', async () => {
     await clear();
@@ -335,9 +382,12 @@ test('MariaDB authentication and HTTP security integration', { skip: !enabled },
     await pool.query('ALTER TABLE users ENGINE=Aria');
     try { await assert.rejects(assertSchema(pool), /InnoDB/); }
     finally { await pool.query('ALTER TABLE users ENGINE=InnoDB'); }
-    await pool.query('ALTER TABLE users MODIFY id VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL');
-    try { await assert.rejects(assertSchema(pool), /collation|unicode_ci/); }
-    finally { await pool.query('ALTER TABLE users MODIFY id VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL'); }
+    await pool.query('ALTER TABLE users MODIFY id VARCHAR(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL');
+    try { await assert.rejects(assertSchema(pool), /collation/); }
+    finally { await pool.query('ALTER TABLE users MODIFY id VARCHAR(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL'); }
+    await pool.query('ALTER TABLE auth_sessions MODIFY user_id VARCHAR(20) NOT NULL');
+    try { await assert.rejects(assertSchema(pool), /capacity/); }
+    finally { await pool.query('ALTER TABLE auth_sessions MODIFY user_id VARCHAR(50) NOT NULL'); }
     await assertSchema(pool);
   });
 
@@ -365,5 +415,32 @@ test('MariaDB authentication and HTTP security integration', { skip: !enabled },
       finally { await pool.query(restore); }
     }
     await assertSchema(pool);
+  });
+
+  await t.test('additive migration derives auxiliary user ID capacity and collation from a compatible prototype', async () => {
+    await clear();
+    for (const table of tables) await pool.query(`DROP TABLE IF EXISTS ${table}`);
+    const prototypeDdl = originalDdl.replace('varchar(50)', 'varchar(20)').replaceAll('utf8mb4_general_ci', 'utf8mb4_unicode_ci');
+    try {
+      await pool.query(prototypeDdl);
+      await pool.execute('INSERT INTO users(id,password_hash,email,name) VALUES (?,?,?,?)', ['prototype_user', legacyHash, 'prototype@example.com', '기존 사용자']);
+      const before = (await pool.query('SHOW CREATE TABLE users'))[0][0]['Create Table'];
+      const rows = (await pool.query('SELECT * FROM users'))[0];
+      await applyMigrations(pool);
+      await applyMigrations(pool);
+      assert.equal((await pool.query('SHOW CREATE TABLE users'))[0][0]['Create Table'], before);
+      assert.deepEqual((await pool.query('SELECT * FROM users'))[0], rows);
+      const [columns] = await pool.query(`SELECT CHARACTER_MAXIMUM_LENGTH,COLLATION_NAME FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA=DATABASE() AND COLUMN_NAME='user_id'`);
+      assert.equal(columns.length, 3);
+      for (const column of columns) {
+        assert.equal(column.CHARACTER_MAXIMUM_LENGTH, 20);
+        assert.equal(column.COLLATION_NAME, 'utf8mb4_unicode_ci');
+      }
+    } finally {
+      for (const table of tables) await pool.query(`DROP TABLE IF EXISTS ${table}`);
+      await pool.query(originalDdl);
+      await applyMigrations(pool);
+    }
   });
 });
