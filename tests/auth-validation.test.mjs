@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { formFields, validateAccountForm } from "../assets/auth-validation.js";
 const valid = {
   fullName: "테스트 사용자", username: "demo_user", birthday: "2000-02-29",
-  email: "demo@example.com", password: "new-password-2026", confirmPassword: "new-password-2026", token: "a".repeat(43),
+  email: "demo@example.com", password: "new-password-2026", confirmPassword: "new-password-2026",
 };
 
 test("all account actions accept valid inputs without mutating them", () => {
@@ -29,11 +29,10 @@ test("birthday rejects impossible, future and out-of-range dates, accepts leap d
   for (const birthday of ['2025-02-29','2026-02-30','2026-13-01','2026-10-23','1899-12-31','2000-1-01','invalid']) assert.ok(validateAccountForm('signup', { ...valid, birthday }, today).birthday, birthday);
   for (const birthday of ['1900-01-01','2000-02-29','2026-10-22']) assert.deepEqual(validateAccountForm('signup', { ...valid, birthday }, today), {});
 });
-test("invalid email, identifier and token shapes fail without echoing input", () => {
+test("invalid email and identifier shapes fail without echoing input", () => {
   for (const email of ['demo','demo@','a b@example.com','a@@example.com','a@example']) assert.ok(validateAccountForm('find-id', { ...valid, email }).email);
   for (const username of ['abc','a'.repeat(21),'한글아이디','user name','<script>']) assert.ok(validateAccountForm('login', { ...valid, username }).username);
   for (const username of ['abcd','a'.repeat(20)]) assert.deepEqual(validateAccountForm('login', { ...valid, username }), {});
-  for (const token of ['short','a'.repeat(44),'a'.repeat(42)+'!']) assert.ok(validateAccountForm('verify-email', { token }).token);
   assert.throws(() => validateAccountForm('unknown', valid));
   assert.throws(() => validateAccountForm('__proto__', valid));
   assert.ok(!JSON.stringify(validateAccountForm('signup', { ...valid, email: '<script>alert(1)</script>' })).includes('<script>'));

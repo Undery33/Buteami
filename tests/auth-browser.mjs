@@ -41,7 +41,7 @@ const visible = async (id) => { await page.locator('#'+id).waitFor({ state:'visi
 try {
   let release;
   const gate = new Promise((done) => { release = done; });
-  responder = async (path) => { if (path.endsWith('/signup')) { await gate; return { status:202,body:{ message:'generic' } }; } return { status:401,body:{} }; };
+  responder = async (path) => { if (path.endsWith('/signup')) { await gate; return { status:201,body:{ message:'created' } }; } return { status:401,body:{} }; };
   await page.goto(origin+'/auth/signup.html');
   await fill('fullName','테스트 사용자'); await fill('username','demo_user'); await fill('birthday','2000-02-29'); await fill('email','demo@example.com'); await fill('password','abc12'); await fill('confirmPassword','abc12');
   await submit(); await visible('form-summary');
@@ -53,7 +53,7 @@ try {
   await page.locator('#account-form').evaluate((form) => form.dispatchEvent(new Event('submit',{ bubbles:true,cancelable:true })));
   release(); await visible('form-result');
   assert.equal(calls.filter((call) => call.path.endsWith('/signup')).length,1);
-  assert.match(await page.locator('#result-message').textContent(),/가입 가능한 정보라면/);
+  assert.match(await page.locator('#result-message').textContent(),/로그인할 수 있습니다/);
   assert.equal(await page.locator('#password').inputValue(),'');
   const signup = calls.find((call) => call.path.endsWith('/signup'));
   assert.equal(signup.data.birthday,'2000-02-29'); assert.equal(signup.origin,origin); assert.equal(signup.header,'1');
@@ -65,28 +65,38 @@ try {
   assert.ok(calls.find((call) => call.path.endsWith('/logout')).cookie.includes('buteami=test'));
 
   let resetStatus = 400;
-  responder = async (path) => ({ status:path.endsWith('/request-password-reset') ? 202 : resetStatus,body:{ message:'internal database details must not render' } });
-  await page.goto(origin+'/auth/reset-password.html'); await fill('username','demo_user'); await fill('email','demo@example.com'); await submit(); await visible('form-result');
-  assert.match(await page.locator('#result-message').textContent(),/일치하는 인증된 계정이 있다면/);
-  await page.locator('[data-form-kind="reset-password"]').click();
-  assert.equal(await page.locator('#username').isDisabled(),true); assert.equal(await page.locator('#token').isDisabled(),false);
-  await fill('token','a'.repeat(43)); await fill('password','new-password-2026'); await fill('confirmPassword','new-password-2026'); await submit(); await visible('form-summary');
-  assert.equal(await page.locator('#form-result').isVisible(),false); assert.doesNotMatch(await page.locator('#form-summary').textContent(),/database/); assert.equal(await page.locator('#token').inputValue(),'');
+  responder = async () => ({ status:resetStatus,body:{ message:'internal database details must not render' } });
+  await page.goto(origin+'/auth/reset-password.html');
+  await fill('fullName','테스트 사용자'); await fill('username','demo_user'); await fill('email','demo@example.com');
+  await fill('password','xyz789'); await fill('confirmPassword','xyz789');
+  await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+  assert.equal(await page.locator('#password').inputValue(),'');
+  await fill('fullName','테스트 사용자'); await fill('username','demo_user'); await fill('email','demo@example.com');
+  await fill('password','xyz789'); await fill('confirmPassword','xyz789'); await submit(); await visible('form-summary');
+  assert.equal(await page.locator('#form-result').isVisible(),false);
+  assert.match(await page.locator('#form-summary').textContent(),/이름, 아이디와 이메일이 모두 일치/);
+  assert.doesNotMatch(await page.locator('#form-summary').textContent(),/database/);
+  assert.equal(await page.locator('#password').inputValue(),'');
   resetStatus = 200;
   assert.equal(await page.locator('#password').getAttribute('minlength'),'6');
-  await fill('token','a'.repeat(43)); await fill('password','xyz789'); await fill('confirmPassword','xyz789'); await submit(); await visible('form-result');
+  await fill('password','xyz789'); await fill('confirmPassword','xyz789'); await submit(); await visible('form-result');
   assert.match(await page.locator('#result-title').textContent(),/비밀번호를 변경/);
+  const resetCalls=calls.filter(call=>call.path.endsWith('/reset-password'));
+  assert.deepEqual(resetCalls.at(-1).data,{fullName:'테스트 사용자',username:'demo_user',email:'demo@example.com',password:'xyz789',confirmPassword:'xyz789'});
 
-  responder = async (path) => ({ status:path.endsWith('/verify-email') ? 200 : 202,body:{ message:'ok' } });
-  await page.goto(origin+'/auth/verify-email.html'); await fill('token','a'.repeat(43));
-  await page.evaluate(() => window.dispatchEvent(new Event('pagehide'))); assert.equal(await page.locator('#token').inputValue(),'');
-  await fill('token','a'.repeat(43)); await submit(); await visible('form-result'); assert.match(await page.locator('#result-title').textContent(),/인증을 완료/);
-  await page.locator('[data-form-kind="resend-verification"]').click(); await fill('username','demo_user'); await fill('email','demo@example.com'); await submit(); await visible('form-result');
-  assert.match(await page.locator('#result-message').textContent(),/정보가 일치한다면/);
-  await page.goto(origin+'/auth/find-id.html'); await fill('fullName','테스트 사용자'); await fill('email','demo@example.com'); await submit(); await visible('form-result');
-  assert.match(await page.locator('#result-message').textContent(),/일치하는 인증된 계정이 있다면/);
+  let findStatus=400;
+  responder=async()=>({status:findStatus,body:findStatus===200?{username:'<img src=x onerror=alert(1)>'}:{message:'raw server details'}});
+  await page.goto(origin+'/auth/find-id.html'); await fill('fullName','테스트 사용자'); await fill('email','demo@example.com'); await submit(); await visible('form-summary');
+  assert.equal(await page.locator('#form-result').isVisible(),false);
+  assert.match(await page.locator('#form-summary').textContent(),/이름과 이메일/);
+  findStatus=200; await submit(); await visible('form-result');
+  assert.match(await page.locator('#result-message').textContent(),/<img src=x/);
+  assert.equal(await page.locator('#form-result img').count(),0,'Recovered ID must be text, never HTML');
+  assert.deepEqual(calls.filter(call=>call.path.endsWith('/find-id')).at(-1).data,{fullName:'테스트 사용자',email:'demo@example.com'});
   assert.equal(await page.evaluate(() => localStorage.length + sessionStorage.length),0);
   assert.equal(new URL(page.url()).search,'');
+  await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+  assert.equal(await page.locator('#result-message').textContent(),'');
   for (const status of [404,405,502,503]) {
     responder = async () => ({ status,body:{ message:'internal deployment details must not render' } });
     await page.goto(origin+'/auth/login.html'); await fill('username','demo_user'); await fill('password','abc123'); await submit(); await visible('form-summary');
@@ -95,7 +105,7 @@ try {
     assert.equal(await page.locator('[type=submit]').isDisabled(),false);
   }
   await page.setViewportSize({ width:375,height:900 });
-  await page.goto(origin+'/auth/reset-password.html'); await page.locator('[data-form-kind="reset-password"]').click();
+  await page.goto(origin+'/auth/reset-password.html');
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),false);
   if (process.env.BUTEAMI_UI_SCREENSHOT) await page.screenshot({ path:process.env.BUTEAMI_UI_SCREENSHOT,fullPage:true });
   // Intercept every remote-host request locally; this regression never contacts a real remote server.
@@ -118,7 +128,7 @@ try {
   });
   const remotePage = await remoteContext.newPage();
   remotePage.on('pageerror', (error) => errors.push(error.message));
-  for (const accountPage of ['login','signup','find-id','reset-password','verify-email']) {
+  for (const accountPage of ['login','signup','find-id','reset-password']) {
     await remotePage.goto(`http://www.buteami.test/auth/${accountPage}.html`);
     await remotePage.locator('#form-summary').waitFor({ state:'visible' });
     assert.match(await remotePage.locator('#form-summary').textContent(),/HTTPS/);
@@ -141,5 +151,5 @@ try {
   assert.ok(!remoteRequests.some((request) => request.path.endsWith('/version.json')),'Unsafe setup returns before optional fetches');
   await remoteContext.close();
   assert.deepEqual(errors,[]);
-  console.log('Browser checks passed: six-character signup/reset; signup/pending; login/logout cookie; recovery/reset error+success; verify/resend; find ID; unavailable404/405/502/503; pagehide clearing; mobile width; remote HTTP blocks all account fetches.');
+  console.log('Browser checks passed: six-character signup/reset; signup/pending; login/logout cookie; recovery/reset error+success; direct ID safe text; identity-match reset; unavailable404/405/502/503; pagehide clearing; mobile width; remote HTTP blocks all account fetches.');
 } finally { await browser.close(); await new Promise((done) => server.close(done)); }
