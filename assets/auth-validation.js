@@ -2,10 +2,7 @@
 export const formFields = {
   login: ["username", "password"],
   "find-id": ["fullName", "email"],
-  "request-password-reset": ["username", "email"],
-  "reset-password": ["token", "password", "confirmPassword"],
-  "verify-email": ["token"],
-  "resend-verification": ["username", "email"],
+  "reset-password": ["fullName", "username", "email", "password", "confirmPassword"],
   signup: ["fullName", "username", "birthday", "email", "password", "confirmPassword"],
 };
 
@@ -31,7 +28,6 @@ export function validateAccountForm(kind, values, today = new Date()) {
       if (!value) errors[key] = "비밀번호를 한 번 더 입력해주세요.";
       else if (value !== values.password) errors[key] = "비밀번호가 일치하지 않습니다.";
     }
-    if (key === "token" && !/^[A-Za-z0-9_-]{43}$/.test(trimmed)) errors[key] = "이메일에 포함된 인증 코드를 그대로 붙여넣어주세요.";
   }
   return errors;
 }
