@@ -23,7 +23,7 @@ const server = createServer(async (req,res) => {
       res.writeHead(reply.status, { 'Content-Type':'application/json', ...(reply.headers || {}) });
       res.end(JSON.stringify(reply.body)); return;
     }
-    const file = resolve(root, '.' + decodeURIComponent(url.pathname));
+    const file = resolve(root, '.' + decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname));
     if (!file.startsWith(root + sep) && file !== root) { res.writeHead(403).end(); return; }
     const data = await readFile(file); res.writeHead(200, { 'Content-Type':types[extname(file)] || 'application/octet-stream' }); res.end(data);
   } catch { res.writeHead(404).end(); }
@@ -32,6 +32,7 @@ await new Promise((done) => server.listen(0,'127.0.0.1',done));
 const origin = `http://127.0.0.1:${server.address().port}`;
 const browser = await chromium.launch({ headless:true, ...(process.env.BUTEAMI_BROWSER_CHANNEL ? { channel:process.env.BUTEAMI_BROWSER_CHANNEL } : {}) });
 const context = await browser.newContext({ viewport:{ width:1280,height:1000 } });
+await context.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
 const page = await context.newPage();
 const errors = [];
 page.on('pageerror', (error) => errors.push(error.message));
@@ -51,21 +52,84 @@ try {
   await submit();
   assert.equal(await page.locator('[type=submit]').isDisabled(),true);
   await page.locator('#account-form').evaluate((form) => form.dispatchEvent(new Event('submit',{ bubbles:true,cancelable:true })));
-  release(); await visible('form-result');
+  release(); await page.waitForURL(origin+'/auth/login.html');
   assert.equal(calls.filter((call) => call.path.endsWith('/signup')).length,1);
-  assert.match(await page.locator('#result-message').textContent(),/로그인할 수 있습니다/);
+  await visible('account-form');
   assert.equal(await page.locator('#password').inputValue(),'');
   const signup = calls.find((call) => call.path.endsWith('/signup'));
   assert.equal(signup.data.birthday,'2000-02-29'); assert.equal(signup.origin,origin); assert.equal(signup.header,'1');
 
-  responder = async (path) => ({ status:path.endsWith('/me') ? 401 : 200,body:{ user:{ username:'demo_user',fullName:'<img src=x onerror=alert(1)>' } },headers:path.endsWith('/login') ? { 'Set-Cookie':'buteami=test; HttpOnly; SameSite=Lax; Path=/' } : {} });
-  await page.goto(origin+'/auth/login.html'); await fill('username','demo_user'); await fill('password','oldpass'); await submit(); await visible('logout');
-  assert.match(await page.locator('#result-message').textContent(),/<img src=x/); assert.equal(await page.locator('#form-result img').count(),0);
-  await page.locator('#logout').click(); await visible('account-form');
-  assert.ok(calls.find((call) => call.path.endsWith('/logout')).cookie.includes('buteami=test'));
+  responder = async path => ({status:path.endsWith('/signup') ? 400 : 401,body:{message:'raw signup failure must not render'}});
+  await page.goto(origin+'/auth/signup.html');
+  await fill('fullName','테스트 사용자'); await fill('username','demo_user'); await fill('birthday','2000-02-29'); await fill('email','demo@example.com'); await fill('password','abc123'); await fill('confirmPassword','abc123');
+  await submit(); await visible('form-summary');
+  assert.equal(page.url(),origin+'/auth/signup.html','Rejected signup must not redirect');
+  assert.equal(await page.locator('#password').inputValue(),'');
+
+  for (const user of [undefined,{username:''},{username:'   '}]) {
+    responder = async path => ({status:path.endsWith('/me') ? 401 : 200,body:{user}});
+    await page.goto(origin+'/auth/login.html'); await fill('username','demo_user'); await fill('password','oldpass'); await submit(); await visible('form-summary');
+    assert.equal(page.url(),origin+'/auth/login.html','Malformed login success must not redirect');
+    assert.equal(await page.locator('#password').inputValue(),'');
+  }
+
+  let sessionUser = null;
+  let logoutStatus = 503;
+  responder = async path => {
+    if (path.endsWith('/login')) {
+      sessionUser={username:'demo_user',fullName:'<img src=x onerror=alert(1)>'};
+      return {status:200,body:{user:sessionUser},headers:{'Set-Cookie':'buteami=test; HttpOnly; SameSite=Lax; Path=/'}};
+    }
+    if (path.endsWith('/me')) return {status:sessionUser ? 200 : 401,body:sessionUser ? {user:sessionUser} : {}};
+    if (path.endsWith('/logout')) {
+      if (logoutStatus !== 200) return {status:logoutStatus,body:{message:'raw logout database details'}};
+      sessionUser=null;
+      return {status:200,body:{message:'logged out'},headers:{'Set-Cookie':'buteami=; Max-Age=0; HttpOnly; Path=/'}};
+    }
+    return {status:200,body:{message:'ok'}};
+  };
+  await page.goto(origin+'/auth/login.html'); await fill('username','demo_user'); await fill('password','oldpass'); await submit();
+  await page.waitForURL(origin+'/'); await visible('header-session');
+  assert.equal(await page.locator('#header-login').isVisible(),false);
+  assert.equal(await page.locator('#header-user').textContent(),sessionUser.fullName);
+  assert.equal(await page.locator('#header-session img').count(),0,'Session name must render as text');
+  assert.match(await page.locator('#header-session').textContent(),/님/);
+  await page.goto(origin+'/auth/login.html'); await page.waitForURL(origin+'/'); await visible('header-session');
+
+  await page.locator('#header-logout').click(); await visible('header-status');
+  assert.equal(await page.locator('#header-session').isVisible(),true,'Failed logout must preserve authenticated header');
+  assert.equal(await page.locator('#header-logout').isDisabled(),false);
+  assert.doesNotMatch(await page.locator('#header-status').textContent(),/database|raw logout/);
+  const failedLogout=calls.find(call=>call.path.endsWith('/logout'));
+  assert.ok(failedLogout.cookie.includes('buteami=test'));
+  assert.equal(failedLogout.header,'1'); assert.equal(failedLogout.origin,origin);
+
+  sessionUser={username:'demo_user',fullName:'긴'.repeat(100)};
+  await page.reload(); await visible('header-session');
+  for (const width of [1280,1000,950,901,375]) {
+    await page.setViewportSize({width,height:900});
+    const menu=page.locator('.menu-toggle');
+    if (await menu.isVisible() && await menu.getAttribute('aria-expanded') !== 'true') await menu.click();
+    await visible('header-session');
+    assert.equal(await page.locator('#header-user').textContent(),sessionUser.fullName);
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`Long session names must not cause overflow at ${width}px`);
+    const overlaps=await page.evaluate(()=>{
+      const selectors=['.header-inner > .brand','#main-nav > a','.header-user-label','#header-logout','.header-github','.menu-toggle'];
+      const boxes=selectors.flatMap(selector=>[...document.querySelectorAll(selector)].map(element=>({label:element.id||element.className||element.textContent.trim(),rect:element.getBoundingClientRect()}))).filter(item=>item.rect.width>0&&item.rect.height>0);
+      return boxes.flatMap((first,index)=>boxes.slice(index+1).filter(second=>Math.min(first.rect.right,second.rect.right)-Math.max(first.rect.left,second.rect.left)>1&&Math.min(first.rect.bottom,second.rect.bottom)-Math.max(first.rect.top,second.rect.top)>1).map(second=>[first.label,second.label]));
+    });
+    assert.deepEqual(overlaps,[],`Header controls must not overlap at ${width}px`);
+  }
+  await page.setViewportSize({width:1280,height:1000});
+
+  logoutStatus=200;
+  await page.locator('#header-logout').click(); await visible('header-login');
+  assert.equal(await page.locator('#header-session').isVisible(),false);
+  assert.equal(await page.locator('#header-user').textContent(),'');
+  assert.equal(page.url(),origin+'/');
 
   let resetStatus = 400;
-  responder = async () => ({ status:resetStatus,body:{ message:'internal database details must not render' } });
+  responder = async path => ({ status:path.endsWith('/me') ? 401 : resetStatus,body:{ message:'internal database details must not render' } });
   await page.goto(origin+'/auth/reset-password.html');
   await fill('fullName','테스트 사용자'); await fill('username','demo_user'); await fill('email','demo@example.com');
   await fill('password','xyz789'); await fill('confirmPassword','xyz789');
@@ -73,30 +137,51 @@ try {
   assert.equal(await page.locator('#password').inputValue(),'');
   await fill('fullName','테스트 사용자'); await fill('username','demo_user'); await fill('email','demo@example.com');
   await fill('password','xyz789'); await fill('confirmPassword','xyz789'); await submit(); await visible('form-summary');
+  assert.equal(page.url(),origin+'/auth/reset-password.html','Rejected password reset must not redirect');
   assert.equal(await page.locator('#form-result').isVisible(),false);
   assert.match(await page.locator('#form-summary').textContent(),/이름, 아이디와 이메일이 모두 일치/);
   assert.doesNotMatch(await page.locator('#form-summary').textContent(),/database/);
   assert.equal(await page.locator('#password').inputValue(),'');
+  assert.equal(await page.locator('#confirmPassword').inputValue(),'');
   resetStatus = 200;
   assert.equal(await page.locator('#password').getAttribute('minlength'),'6');
-  await fill('password','xyz789'); await fill('confirmPassword','xyz789'); await submit(); await visible('form-result');
-  assert.match(await page.locator('#result-title').textContent(),/비밀번호를 변경/);
+  await fill('password','xyz789'); await fill('confirmPassword','xyz789'); await submit();
+  await page.waitForURL(origin+'/auth/login.html'); await visible('account-form');
+  assert.equal(await page.locator('#account-form').getAttribute('data-form'),'login');
+  assert.equal(await page.locator('#form-result').isVisible(),false);
+  assert.equal(await page.locator('#password').inputValue(),'');
+  assert.equal(new URL(page.url()).search,'');
+  assert.equal(new URL(page.url()).hash,'');
+  assert.ok(!page.url().includes('xyz789'));
+  assert.equal(await page.evaluate(()=>localStorage.length+sessionStorage.length),0);
   const resetCalls=calls.filter(call=>call.path.endsWith('/reset-password'));
   assert.deepEqual(resetCalls.at(-1).data,{fullName:'테스트 사용자',username:'demo_user',email:'demo@example.com',password:'xyz789',confirmPassword:'xyz789'});
 
   let findStatus=400;
-  responder=async()=>({status:findStatus,body:findStatus===200?{username:'<img src=x onerror=alert(1)>'}:{message:'raw server details'}});
+  responder=async path=>({status:path.endsWith('/me')?401:findStatus,body:findStatus===200?{username:'<img src=x onerror=alert(1)>'}:{message:'raw server details'}});
   await page.goto(origin+'/auth/find-id.html'); await fill('fullName','테스트 사용자'); await fill('email','demo@example.com'); await submit(); await visible('form-summary');
   assert.equal(await page.locator('#form-result').isVisible(),false);
   assert.match(await page.locator('#form-summary').textContent(),/이름과 이메일/);
   findStatus=200; await submit(); await visible('form-result');
   assert.match(await page.locator('#result-message').textContent(),/<img src=x/);
   assert.equal(await page.locator('#form-result img').count(),0,'Recovered ID must be text, never HTML');
+  assert.equal(await page.locator('#try-again').count(),0,'Identifier recovery must offer login instead of retry');
+  assert.equal(await page.locator('#result-login').evaluate(element=>element.tagName),'A');
+  assert.equal(await page.locator('#result-login').getAttribute('href'),'login.html');
+  assert.match(await page.locator('#result-login').textContent(),/로그인하기/);
   assert.deepEqual(calls.filter(call=>call.path.endsWith('/find-id')).at(-1).data,{fullName:'테스트 사용자',email:'demo@example.com'});
   assert.equal(await page.evaluate(() => localStorage.length + sessionStorage.length),0);
   assert.equal(new URL(page.url()).search,'');
   await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
   assert.equal(await page.locator('#result-message').textContent(),'');
+  // Restore the successful result after checking pagehide cleanup, then follow
+  // the native login link while the recovered identifier is still visible.
+  await fill('fullName','테스트 사용자'); await fill('email','demo@example.com'); await submit(); await visible('form-result');
+  assert.match(await page.locator('#result-message').textContent(),/<img src=x/);
+  await page.locator('#result-login').click(); await page.waitForURL(origin+'/auth/login.html'); await visible('account-form');
+  assert.equal(new URL(page.url()).search,'');
+  assert.equal(new URL(page.url()).hash,'');
+  assert.equal(await page.evaluate(()=>localStorage.length+sessionStorage.length),0);
   for (const status of [404,405,502,503]) {
     responder = async () => ({ status,body:{ message:'internal deployment details must not render' } });
     await page.goto(origin+'/auth/login.html'); await fill('username','demo_user'); await fill('password','abc123'); await submit(); await visible('form-summary');
@@ -121,7 +206,7 @@ try {
       await route.fulfill({ status:503, contentType:'application/json', body:'{}' });
       return;
     }
-    const file = resolve(root, '.' + decodeURIComponent(url.pathname));
+    const file = resolve(root, '.' + decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname));
     if (!file.startsWith(root + sep)) { await route.fulfill({ status:403,body:'' }); return; }
     try { await route.fulfill({ status:200,contentType:types[extname(file)] || 'application/octet-stream',body:await readFile(file) }); }
     catch { await route.fulfill({ status:404,body:'' }); }
@@ -149,7 +234,11 @@ try {
   assert.equal(remoteApiCalls,0,'Remote HTTP must not fetch me, login, or any account API');
   assert.ok(remoteRequests.every((request) => request.method === 'GET' && !request.body),'Remote HTTP must send no form values');
   assert.ok(!remoteRequests.some((request) => request.path.endsWith('/version.json')),'Unsafe setup returns before optional fetches');
+  await remotePage.goto('http://www.buteami.test/');
+  await remotePage.locator('#header-login').waitFor({state:'visible'});
+  assert.equal(await remotePage.locator('#header-session').isVisible(),false);
+  assert.equal(remoteApiCalls,0,'Remote HTTP main header must not send a session lookup');
   await remoteContext.close();
   assert.deepEqual(errors,[]);
-  console.log('Browser checks passed: six-character signup/reset; signup/pending; login/logout cookie; recovery/reset error+success; direct ID safe text; identity-match reset; unavailable404/405/502/503; pagehide clearing; mobile width; remote HTTP blocks all account fetches.');
+  console.log('Browser checks passed: signup/reset redirect to login; recovered ID stays safe text with a native login link; login and existing sessions redirect home; malformed successes stay put; header session and safe names; logout cookie/failure/success; long-name mobile width; six-character signup/reset; recovery and ID errors/success; unavailable APIs; pagehide clearing; remote HTTP blocks account requests.');
 } finally { await browser.close(); await new Promise((done) => server.close(done)); }

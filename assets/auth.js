@@ -1,9 +1,5 @@
 import { formFields, validateAccountForm } from "./auth-validation.js";
 
-const success = {
-  signup: ["회원가입을 완료했어요", "이제 가입한 아이디와 비밀번호로 로그인할 수 있습니다."],
-  "reset-password": ["비밀번호를 변경했어요", "계정 잠금이 해제되고 기존 로그인은 종료됩니다. 새 비밀번호로 로그인해주세요."],
-};
 const transportMessage = "개인정보 보호를 위해 HTTPS 연결에서만 계정 기능을 사용할 수 있습니다. HTTPS 주소로 다시 접속해주세요.";
 const unavailableMessage = "계정 서비스에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.";
 
@@ -120,7 +116,7 @@ export function setupAccountPage(doc = document, win = window, fetcher = globalT
     doc.getElementById("result-title").textContent = "";
     doc.getElementById("result-message").textContent = "";
     form.hidden = false;
-    retry.hidden = false;
+    if (retry) retry.hidden = false;
     if (logout) logout.hidden = true;
   }
   function showResult(title, message, session = false) {
@@ -129,13 +125,14 @@ export function setupAccountPage(doc = document, win = window, fetcher = globalT
     doc.getElementById("result-message").textContent = message;
     form.hidden = true;
     result.hidden = false;
-    retry.hidden = session;
+    if (retry) retry.hidden = session;
     if (logout) logout.hidden = !session;
     result.focus();
   }
-  function showSession(data) {
-    if (!data.user || typeof data.user.username !== "string") throw new Error("로그인 상태를 확인하지 못했습니다. 페이지를 새로고침해주세요.");
-    showResult("로그인되어 있어요", `${data.user.fullName || data.user.username} (${data.user.username}) 계정으로 로그인되어 있습니다.`, true);
+  function openHome(data) {
+    if (!data.user || typeof data.user.username !== "string" || !data.user.username.trim()) throw new Error("로그인 상태를 확인하지 못했습니다. 페이지를 새로고침해주세요.");
+    clearSensitive();
+    win.location.replace("/");
   }
   submit.dataset.label = submit.textContent.trim().replace(/→$/, "").trim();
   form.addEventListener("submit", async (event) => {
@@ -159,9 +156,12 @@ export function setupAccountPage(doc = document, win = window, fetcher = globalT
     try {
       const response = await accountRequest(kind, data, fetcher, requestController.signal);
       if (requestController.signal.aborted) return;
-      if (kind === "login") showSession(response);
+      if (kind === "login") openHome(response);
+      else if (kind === "signup" || kind === "reset-password") {
+        clearSensitive();
+        win.location.replace("/auth/login.html");
+      }
       else if (kind === "find-id") showResult("아이디를 확인했어요", `가입한 아이디는 ${response.username}입니다.`);
-      else showResult(...success[kind]);
     } catch (error) {
       if (requestController.signal.aborted) return;
       clearSensitive();
@@ -191,7 +191,7 @@ export function setupAccountPage(doc = document, win = window, fetcher = globalT
     button.setAttribute("aria-pressed", String(visible));
     button.setAttribute("aria-label", `${input.labels[0].textContent} ${visible ? "숨기기" : "표시"}`);
   }));
-  retry.addEventListener("click", () => { resetForm(); inputs()[0].focus(); });
+  retry?.addEventListener("click", () => { resetForm(); inputs()[0].focus(); });
   logout?.addEventListener("click", async () => {
     if (pending) return;
     pending = true;
@@ -221,7 +221,7 @@ export function setupAccountPage(doc = document, win = window, fetcher = globalT
       const response = await fetcher("/api/auth/me", { credentials: "same-origin", cache: "no-store" });
       if (!response.ok) return;
       const data = await response.json();
-      if (version === sessionLookup && !pending) showSession(data);
+      if (version === sessionLookup && !pending) openHome(data);
     } catch { /* An unavailable session endpoint must leave login usable. */ }
   }
   if (form.dataset.form === "login") checkSession();
