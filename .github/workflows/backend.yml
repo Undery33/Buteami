@@ -87,3 +87,13 @@ jobs:
           done
           curl --fail --silent http://127.0.0.1:18080/ > /dev/null
           docker exec buteami-web-ci nginx -t
+      - name: Run integration tests inside the disposable Compose stack
+        run: docker compose --project-name buteami-ci --project-directory backend --file backend/compose.yaml --profile test run --build --rm -e SMTP_SMOKE_ENABLED=1 tests
+      - name: Start the full local API, database, mail and web stack
+        run: |
+          docker compose --project-name buteami-ci --project-directory backend --file backend/compose.yaml --profile app up --build --detach --wait --wait-timeout 120
+          curl --fail --silent http://127.0.0.1:8080/api/health/ready
+          curl --fail --silent http://127.0.0.1:8080/auth/verify-email.html > /dev/null
+      - name: Stop the disposable Compose stack
+        if: always()
+        run: docker compose --project-name buteami-ci --project-directory backend --file backend/compose.yaml --profile app --profile test down
